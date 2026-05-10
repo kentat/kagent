@@ -37,6 +37,10 @@ get_portfolio_pnl でポートフォリオ全銘柄の損益を取得
 
 === STEP 3: 天気 ===
 get_weather で東京の天気を取得
+get_weather_kansai で大阪（関西）の天気を取得
+
+=== STEP 3.5: 市場心理 ===
+get_fear_greed_index でFear & Greed Indexを取得
 
 === STEP 4: タスク ===
 get_tasks で未完了タスク一覧を取得
@@ -54,11 +58,14 @@ get_calendar_events で今日〜3日分の予定を取得
 📈 市況サマリー
 （指数・為替）
 ---
+😱 市場心理: [スコア]/100（[状態]）
+---
 💰 ポートフォリオ
 （損益・ヒーロー銘柄・注意銘柄）
 ---
 🌤 天気
-（東京の天気・気温）
+東京：（天気・気温）
+大阪：（天気・気温）
 ---
 📋 タスク
 （未完了タスク一覧、なければ「予定なし」）
@@ -79,11 +86,16 @@ def _evening_report_prompt() -> str:
 1. 「US stock market news today」で検索
 2. 「S&P500 NASDAQ market today」で検索
    → 今日の相場全体の動き・注目セクター・話題の銘柄ニュース
+3. get_fear_greed_index で市場心理指数を取得
 
 【AI・テクノロジーニュース】
-3. 「AI artificial intelligence news today 2026」で検索
-4. 「AI business use case productivity 2026」で検索
+4. 「AI artificial intelligence news today 2026」で検索
+5. 「AI business use case productivity 2026」で検索
    → 新しいAI技術・ツール・活用事例・ビジネス利用法
+
+【Hacker Newsトップ】
+6. get_hacker_news でトップ5記事を取得
+   → タイトルとURL・スコアを表示
 
 各ニュースは：
 - 内容を簡潔に日本語で要約（2〜3行）
@@ -92,15 +104,21 @@ def _evening_report_prompt() -> str:
 フォーマット：
 🌙 夜間ニュース [日付]
 ---
+😱 市場心理（Fear & Greed）
+（スコアと状態）
+---
 📈 米国株・市場
 • ニュースタイトル
   要約（2〜3行）
   🔗 URL
-
 ---
 🤖 AI・テクノロジー
 • ニュースタイトル
   要約（2〜3行）
+  🔗 URL
+---
+💻 Hacker News
+• タイトル（スコア pt）
   🔗 URL
 
 重要：URLは必ず実際のリンクを記載すること。ニュースは各セクション3〜5件。"""

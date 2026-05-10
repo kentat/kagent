@@ -162,7 +162,7 @@ def complete_task(task_id):
     return f"✅ タスク#{task_id}完了"
 
 def execute_tool(tool_name, tool_input):
-    dispatch = {"get_stock_price": get_stock_price, "get_portfolio_prices": get_portfolio_prices, "get_portfolio_pnl": get_portfolio_pnl, "get_exchange_rate": get_exchange_rate, "get_market_indices": get_market_indices, "web_search": web_search, "fetch_url_content": fetch_url_content, "get_weather": get_weather, "save_note": save_note, "get_notes": get_notes, "add_task": add_task, "get_tasks": get_tasks, "complete_task": complete_task, "get_youtube_new_videos": get_youtube_new_videos, "get_calendar_events": get_calendar_events}
+    dispatch = {"get_stock_price": get_stock_price, "get_portfolio_prices": get_portfolio_prices, "get_portfolio_pnl": get_portfolio_pnl, "get_exchange_rate": get_exchange_rate, "get_market_indices": get_market_indices, "web_search": web_search, "fetch_url_content": fetch_url_content, "get_weather": get_weather, "get_weather_kansai": get_weather_kansai, "get_fear_greed_index": get_fear_greed_index, "get_hacker_news": get_hacker_news, "save_note": save_note, "get_notes": get_notes, "add_task": add_task, "get_tasks": get_tasks, "complete_task": complete_task, "get_youtube_new_videos": get_youtube_new_videos, "get_calendar_events": get_calendar_events}
     fn = dispatch.get(tool_name)
     if not fn: return f"不明なツール: {tool_name}"
     try:
@@ -324,3 +324,77 @@ def get_calendar_events(days: int = 3) -> list:
 
     except Exception as ex:
         return [{"error": str(ex)}]
+
+
+# ─────────────────────────────────────────
+# Hacker News トップ記事
+# ─────────────────────────────────────────
+
+def get_hacker_news(limit: int = 5) -> list:
+    """Hacker Newsのトップ記事を取得する"""
+    try:
+        top_ids = requests.get(
+            "https://hacker-news.firebaseio.com/v0/topstories.json", timeout=10
+        ).json()[:limit]
+
+        results = []
+        for story_id in top_ids:
+            item = requests.get(
+                f"https://hacker-news.firebaseio.com/v0/item/{story_id}.json", timeout=5
+            ).json()
+            if item and item.get("type") == "story":
+                results.append({
+                    "title": item.get("title", ""),
+                    "url": item.get("url", f"https://news.ycombinator.com/item?id={story_id}"),
+                    "score": item.get("score", 0),
+                    "comments": item.get("descendants", 0),
+                })
+        return results
+    except Exception as e:
+        return [{"error": str(e)}]
+
+
+# ─────────────────────────────────────────
+# Fear & Greed Index
+# ─────────────────────────────────────────
+
+def get_fear_greed_index() -> dict:
+    """CNNのFear & Greed Indexを取得する"""
+    try:
+        resp = requests.get(
+            "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        data = resp.json()
+        fg = data["fear_and_greed"]
+        score = round(float(fg["score"]))
+        rating = fg["rating"]
+
+        # 日本語ラベル
+        label_map = {
+            "Extreme Fear": "極度の恐怖 😱",
+            "Fear": "恐怖 😨",
+            "Neutral": "中立 😐",
+            "Greed": "強欲 😏",
+            "Extreme Greed": "極度の強欲 🤑",
+        }
+        label_jp = label_map.get(rating, rating)
+
+        return {
+            "score": score,
+            "rating": rating,
+            "label_jp": label_jp,
+            "description": f"現在の市場心理: {score}/100 ({label_jp})",
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ─────────────────────────────────────────
+# 関西天気（大阪）
+# ─────────────────────────────────────────
+
+def get_weather_kansai() -> dict:
+    """大阪（関西）の天気情報を取得する"""
+    return get_weather("Osaka")
