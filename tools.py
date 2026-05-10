@@ -162,7 +162,7 @@ def complete_task(task_id):
     return f"✅ タスク#{task_id}完了"
 
 def execute_tool(tool_name, tool_input):
-    dispatch = {"get_stock_price": get_stock_price, "get_portfolio_prices": get_portfolio_prices, "get_portfolio_pnl": get_portfolio_pnl, "get_exchange_rate": get_exchange_rate, "get_market_indices": get_market_indices, "web_search": web_search, "fetch_url_content": fetch_url_content, "get_weather": get_weather, "save_note": save_note, "get_notes": get_notes, "add_task": add_task, "get_tasks": get_tasks, "complete_task": complete_task, "get_youtube_new_videos": get_youtube_new_videos}
+    dispatch = {"get_stock_price": get_stock_price, "get_portfolio_prices": get_portfolio_prices, "get_portfolio_pnl": get_portfolio_pnl, "get_exchange_rate": get_exchange_rate, "get_market_indices": get_market_indices, "web_search": web_search, "fetch_url_content": fetch_url_content, "get_weather": get_weather, "save_note": save_note, "get_notes": get_notes, "add_task": add_task, "get_tasks": get_tasks, "complete_task": complete_task, "get_youtube_new_videos": get_youtube_new_videos, "get_calendar_events": get_calendar_events}
     fn = dispatch.get(tool_name)
     if not fn: return f"不明なツール: {tool_name}"
     try:
@@ -252,3 +252,75 @@ def get_youtube_new_videos(hours: int = 24) -> list:
         except:
             continue
     return sorted(results, key=lambda x: x["published"], reverse=True)
+
+
+# ─────────────────────────────────────────
+# Google カレンダー
+# ─────────────────────────────────────────
+
+def get_calendar_events(days: int = 3) -> list:
+    """今日から指定日数分のGoogleカレンダー予定を取得する"""
+    import os
+    from datetime import timezone, timedelta
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "")
+
+    if not all([client_id, client_secret, refresh_token]):
+        return [{"error": "Google認証情報が設定されていません"}]
+
+    try:
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=["https://www.googleapis.com/auth/calendar.readonly"],
+        )
+
+        service = build("calendar", "v3", credentials=creds)
+
+        jst = timezone(timedelta(hours=9))
+        now = datetime.now(jst)
+        time_min = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        time_max = (now + timedelta(days=days)).replace(hour=23, minute=59, second=59).isoformat()
+
+        events_result = service.events().list(
+            calendarId="primary",
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy="startTime",
+            maxResults=20,
+        ).execute()
+
+        events = events_result.get("items", [])
+        results = []
+        for e in events:
+            start = e["start"].get("dateTime", e["start"].get("date", ""))
+            end = e["end"].get("dateTime", e["end"].get("date", ""))
+            # 日付のみイベント
+            if "T" not in start:
+                start_str = start
+                end_str = end
+            else:
+                dt = datetime.fromisoformat(start).astimezone(jst)
+                dt_end = datetime.fromisoformat(end).astimezone(jst)
+                start_str = dt.strftime("%m/%d %H:%M")
+                end_str = dt_end.strftime("%H:%M")
+            results.append({
+                "title": e.get("summary", "（タイトルなし）"),
+                "start": start_str,
+                "end": end_str,
+                "location": e.get("location", ""),
+                "description": e.get("description", "")[:100] if e.get("description") else "",
+            })
+
+        return results if results else [{"message": f"今後{days}日間の予定はありません"}]
+
+    except Exception as ex:
+        return [{"error": str(ex)}]
