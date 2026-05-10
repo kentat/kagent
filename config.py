@@ -44,6 +44,8 @@ MARKET_CHECK_HOUR = 23
 MARKET_CHECK_MINUTE = 0
 
 # YouTube監視チャンネル
+YOUTUBE_API_KEY = "AIzaSyAc7C1UQ_1V0IT5gTkApv0DJ9-UjWJal5E"
+
 YOUTUBE_CHANNELS = [
     {"name": "ばっちゃまの米国株",          "handle": "bacchama"},
     {"name": "両学長 リベラルアーツ大学",    "handle": "ryogakucho"},

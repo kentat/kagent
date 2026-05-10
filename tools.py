@@ -180,7 +180,8 @@ import xml.etree.ElementTree as ET
 from datetime import timezone, timedelta
 
 def _get_channel_id(handle: str) -> str:
-    """ハンドルからチャンネルIDを取得（SQLiteキャッシュ付き）"""
+    """YouTube Data API v3でハンドルからチャンネルIDを取得（SQLiteキャッシュ付き）"""
+    from config import YOUTUBE_API_KEY
     _init_db()
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -192,21 +193,25 @@ def _get_channel_id(handle: str) -> str:
     if row:
         return row[0]
     try:
-        import re
-        resp = requests.get(f"https://www.youtube.com/@{handle}",
-                            headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
-        match = re.search(r'"channelId":"(UC[a-zA-Z0-9_-]{22})"', resp.text)
-        if not match:
-            match = re.search(r'channel/(UC[a-zA-Z0-9_-]{22})', resp.text)
-        if match:
-            cid = match.group(1)
+        # YouTube Data API v3 でハンドルからチャンネルID取得
+        url = "https://www.googleapis.com/youtube/v3/channels"
+        params = {
+            "forHandle": f"@{handle}",
+            "part": "id",
+            "key": YOUTUBE_API_KEY,
+        }
+        resp = requests.get(url, params=params, timeout=10)
+        data = resp.json()
+        items = data.get("items", [])
+        if items:
+            cid = items[0]["id"]
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute("INSERT OR REPLACE INTO yt_channels VALUES (?,?,?)",
                       (handle, cid, datetime.now().isoformat()))
             conn.commit(); conn.close()
             return cid
-    except:
+    except Exception as e:
         pass
     return ""
 
