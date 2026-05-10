@@ -39,6 +39,7 @@ TOOLS = [
     {"name": "get_notes", "description": "保存済みメモを取得", "input_schema": {"type": "object", "properties": {"category": {"type": "string"}, "limit": {"type": "integer", "default": 10}}, "required": []}},
     {"name": "add_task", "description": "タスクを追加", "input_schema": {"type": "object", "properties": {"title": {"type": "string"}, "due_date": {"type": "string"}}, "required": ["title"]}},
     {"name": "get_tasks", "description": "タスク一覧取得", "input_schema": {"type": "object", "properties": {"status": {"type": "string", "default": "pending"}}, "required": []}},
+    {"name": "get_keihan_status", "description": "京阪電車の運行情報（遅延・運転見合わせ・平常運転）を取得する", "input_schema": {"type": "object", "properties": {}, "required": []}},
     {"name": "get_hacker_news", "description": "Hacker Newsのトップ記事を取得。海外テック・AI最新トレンドを知りたいときに使う", "input_schema": {"type": "object", "properties": {"limit": {"type": "integer", "default": 5}}, "required": []}},
     {"name": "get_fear_greed_index", "description": "CNNのFear & Greed Index（市場心理指数）を取得。相場が恐怖か強欲かを0〜100で示す", "input_schema": {"type": "object", "properties": {}, "required": []}},
     {"name": "get_weather_kansai", "description": "大阪（関西）の天気情報を取得する", "input_schema": {"type": "object", "properties": {}, "required": []}},

@@ -41,6 +41,9 @@ get_portfolio_pnl でポートフォリオ全銘柄の損益を取得
 - get_weather city=Kyoto → 京都の天気
 両方の結果を必ずレポートに含めること
 
+=== STEP 3.2: 京阪電車 ===
+get_keihan_status で京阪電車の運行情報を取得
+
 === STEP 3.5: 市場心理 ===
 get_fear_greed_index でFear & Greed Indexを取得
 
@@ -79,6 +82,7 @@ get_calendar_events で今日〜3日分の予定を取得
 🌤 天気
 大阪：（天気・最高/最低気温）
 京都：（天気・最高/最低気温）
+🚃 京阪電車：（運行状況）
 ---
 📋 タスク
 （未完了タスク一覧、なければ「予定なし」）

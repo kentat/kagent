@@ -162,7 +162,7 @@ def complete_task(task_id):
     return f"✅ タスク#{task_id}完了"
 
 def execute_tool(tool_name, tool_input):
-    dispatch = {"get_stock_price": get_stock_price, "get_portfolio_prices": get_portfolio_prices, "get_portfolio_pnl": get_portfolio_pnl, "get_exchange_rate": get_exchange_rate, "get_market_indices": get_market_indices, "web_search": web_search, "fetch_url_content": fetch_url_content, "get_weather": get_weather, "get_weather_kansai": get_weather_kansai, "get_fear_greed_index": get_fear_greed_index, "get_hacker_news": get_hacker_news, "save_note": save_note, "get_notes": get_notes, "add_task": add_task, "get_tasks": get_tasks, "complete_task": complete_task, "get_youtube_new_videos": get_youtube_new_videos, "get_calendar_events": get_calendar_events}
+    dispatch = {"get_stock_price": get_stock_price, "get_portfolio_prices": get_portfolio_prices, "get_portfolio_pnl": get_portfolio_pnl, "get_exchange_rate": get_exchange_rate, "get_market_indices": get_market_indices, "web_search": web_search, "fetch_url_content": fetch_url_content, "get_weather": get_weather, "get_weather_kansai": get_weather_kansai, "get_fear_greed_index": get_fear_greed_index, "get_hacker_news": get_hacker_news, "get_keihan_status": get_keihan_status, "save_note": save_note, "get_notes": get_notes, "add_task": add_task, "get_tasks": get_tasks, "complete_task": complete_task, "get_youtube_new_videos": get_youtube_new_videos, "get_calendar_events": get_calendar_events}
     fn = dispatch.get(tool_name)
     if not fn: return f"不明なツール: {tool_name}"
     try:
@@ -395,6 +395,36 @@ def get_fear_greed_index() -> dict:
 # 関西天気（大阪）
 # ─────────────────────────────────────────
 
-def get_weather_kansai() -> dict:
+def get_keihan_status() -> dict:
+    """京阪電車の運行情報を取得する"""
+    try:
+        import re
+        url = "https://www.keihan.co.jp/traffic/unkou/"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.encoding = "utf-8"
+        text = resp.text
+
+        # タグ除去してテキスト抽出
+        text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL)
+        text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        # 運行情報のキーワードを探す
+        if "平常通り運転" in text or "平常運転" in text:
+            return {"status": "✅ 平常通り運転", "detail": "遅延・運転見合わせなし"}
+        elif "遅延" in text:
+            return {"status": "⚠️ 遅延あり", "detail": "京阪電車で遅延が発生しています"}
+        elif "運転見合わせ" in text or "運休" in text:
+            return {"status": "🚫 運転見合わせ", "detail": "一部区間で運転を見合わせています"}
+        else:
+            return {"status": "📡 情報取得中", "detail": "京阪電車公式サイトをご確認ください", "url": url}
+
+    except Exception as e:
+        return {"status": "⚠️ 取得エラー", "detail": str(e), "url": "https://www.keihan.co.jp/traffic/unkou/"}
+
+
+
     """大阪（関西）の天気情報を取得する"""
     return get_weather("Osaka")
