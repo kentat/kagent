@@ -1,0 +1,244 @@
+"""
+ケンタエージェント - メインエントリーポイント
+Telegramボットとエージェントを統合する
+"""
+
+import logging
+import asyncio
+from telegram import Update, BotCommand
+from telegram.ext import (
+    Application,
+    MessageHandler,
+    CommandHandler,
+    filters,
+    ContextTypes,
+)
+from config import TELEGRAM_TOKEN, ALLOWED_USER_ID, MY_PORTFOLIO
+from agent import run_agent
+from scheduler import setup_scheduler
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# ユーザーごとの会話履歴（インメモリ、最大20メッセージ）
+conversation_histories: dict[int, list] = {}
+
+
+# ─────────────────────────────────────────
+# ユーティリティ
+# ─────────────────────────────────────────
+
+def is_allowed(user_id: int) -> bool:
+    """アクセス制限チェック（自分以外は拒否）"""
+    return ALLOWED_USER_ID == 0 or user_id == ALLOWED_USER_ID
+
+
+async def safe_send(bot, chat_id: int, text: str):
+    """長文を4096文字で分割して送信"""
+    if len(text) <= 4096:
+        await bot.send_message(chat_id=chat_id, text=text)
+    else:
+        for i in range(0, len(text), 4096):
+            await bot.send_message(chat_id=chat_id, text=text[i : i + 4096])
+            await asyncio.sleep(0.3)
+
+
+# ─────────────────────────────────────────
+# コマンドハンドラ
+# ─────────────────────────────────────────
+
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_allowed(user_id):
+        return
+
+    msg = (
+        "🤖 *ケンタエージェント* 起動完了\n\n"
+        "自然言語でなんでも指示してください。\n\n"
+        "例：\n"
+        "• 「ポートフォリオ全部の株価チェックして」\n"
+        "• 「NVDAの最近のニュース調べて」\n"
+        "• 「今日やること：〇〇をタスクに追加して」\n"
+        "• 「朝レポート今すぐ出して」\n\n"
+        "コマンド一覧は /help"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_allowed(update.effective_user.id):
+        return
+
+    msg = (
+        "📋 *コマンド一覧*\n\n"
+        "/start — 起動メッセージ\n"
+        "/help — このヘルプ\n"
+        "/clear — 会話履歴をリセット\n"
+        "/morning — 朝レポートを今すぐ実行\n"
+        "/portfolio — ポートフォリオ株価一括確認\n"
+        "/tasks — 未完了タスク一覧\n"
+        "/notes — 最近のメモ一覧\n"
+        "/status — エージェント状態確認\n\n"
+        "それ以外はすべて自然言語で話しかけてください 🗣"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_allowed(update.effective_user.id):
+        return
+    conversation_histories[update.effective_user.id] = []
+    await update.message.reply_text("🧹 会話履歴をリセットしました")
+
+
+async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """朝レポートを即時実行"""
+    if not is_allowed(update.effective_user.id):
+        return
+    await update.message.reply_text("📊 朝レポートを生成中...")
+    await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: _run_and_reply(update, context, "朝の市況レポートを今すぐ作成してください。指数、USD/JPY、保有全銘柄の株価、東京の天気を含めて"),
+    )
+
+
+async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ポートフォリオ一括確認"""
+    if not is_allowed(update.effective_user.id):
+        return
+    tickers = ", ".join(MY_PORTFOLIO["holdings"])
+    await update.message.reply_text(f"📈 ポートフォリオ確認中（{tickers}）...")
+    response = run_agent(f"保有銘柄 {tickers} の現在株価と前日比を一覧で表示してください")
+    await safe_send(context.bot, update.effective_chat.id, response)
+
+
+async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """タスク一覧表示"""
+    if not is_allowed(update.effective_user.id):
+        return
+    response = run_agent("未完了のタスク一覧を表示してください")
+    await safe_send(context.bot, update.effective_chat.id, response)
+
+
+async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """最近のメモ表示"""
+    if not is_allowed(update.effective_user.id):
+        return
+    response = run_agent("最近保存したメモを10件表示してください")
+    await safe_send(context.bot, update.effective_chat.id, response)
+
+
+async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """エージェントステータス確認"""
+    if not is_allowed(update.effective_user.id):
+        return
+
+    jobs = []
+    from scheduler import scheduler
+    for job in scheduler.get_jobs():
+        next_run = job.next_run_time.strftime("%m/%d %H:%M") if job.next_run_time else "未定"
+        jobs.append(f"• {job.id}: 次回 {next_run}")
+
+    history_count = len(conversation_histories.get(update.effective_user.id, []))
+    msg = (
+        f"✅ *エージェント稼働中*\n\n"
+        f"会話履歴: {history_count}件\n"
+        f"定期タスク:\n" + "\n".join(jobs)
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+# ─────────────────────────────────────────
+# メッセージハンドラ（自然言語）
+# ─────────────────────────────────────────
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """テキストメッセージを受け取りエージェントに渡す"""
+    user_id = update.effective_user.id
+    if not is_allowed(user_id):
+        await update.message.reply_text("⛔ アクセス権限がありません")
+        return
+
+    user_message = update.message.text
+    chat_id = update.effective_chat.id
+
+    # タイピング表示
+    await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+
+    # 会話履歴取得
+    history = conversation_histories.get(user_id, [])
+
+    try:
+        # エージェント実行（同期関数をexecutorで実行）
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, lambda: run_agent(user_message, history)
+        )
+
+        # 履歴更新（最大20件）
+        history = history + [
+            {"role": "user", "content": user_message},
+            {"role": "assistant", "content": response},
+        ]
+        conversation_histories[user_id] = history[-20:]
+
+        await safe_send(context.bot, chat_id, response)
+
+    except Exception as e:
+        logger.error(f"エージェントエラー: {e}", exc_info=True)
+        await update.message.reply_text(f"⚠️ エラーが発生しました: {str(e)}")
+
+
+def _run_and_reply(update, context, prompt):
+    """同期コンテキストからエージェントを実行するヘルパー"""
+    pass  # cmd_morning用のプレースホルダー
+
+
+# ─────────────────────────────────────────
+# メイン
+# ─────────────────────────────────────────
+
+def main():
+    if not TELEGRAM_TOKEN:
+        raise ValueError("TELEGRAM_TOKEN が設定されていません。.envを確認してください")
+
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
+
+    # コマンド登録
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(CommandHandler("clear", cmd_clear))
+    app.add_handler(CommandHandler("morning", cmd_morning))
+    app.add_handler(CommandHandler("portfolio", cmd_portfolio))
+    app.add_handler(CommandHandler("tasks", cmd_tasks))
+    app.add_handler(CommandHandler("notes", cmd_notes))
+    app.add_handler(CommandHandler("status", cmd_status))
+
+    # メッセージハンドラ
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # スケジューラー起動（ALLOWED_USER_IDにレポート送信）
+    if ALLOWED_USER_ID:
+        async def post_init(app):
+            await app.bot.set_my_commands([
+                BotCommand("morning", "朝レポートを今すぐ実行"),
+                BotCommand("portfolio", "ポートフォリオ株価確認"),
+                BotCommand("tasks", "タスク一覧"),
+                BotCommand("notes", "メモ一覧"),
+                BotCommand("clear", "会話履歴リセット"),
+                BotCommand("status", "エージェント状態"),
+                BotCommand("help", "ヘルプ"),
+            ])
+            setup_scheduler(app.bot, ALLOWED_USER_ID)
+
+        app.post_init = post_init
+
+    logger.info("🤖 ケンタエージェント起動")
+    app.run_polling(drop_pending_updates=True)
+
+
+if __name__ == "__main__":
+    main()

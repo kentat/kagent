@@ -1,0 +1,28 @@
+# 環境変数（絶対にpushしない）
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+venv/
+env/
+.venv/
+
+# データベース（ローカルのみ）
+*.db
+*.sqlite3
+
+# ログ
+*.log
+nohup.out
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
