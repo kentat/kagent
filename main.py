@@ -98,11 +98,16 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """朝レポートを即時実行"""
     if not is_allowed(update.effective_user.id):
         return
-    await update.message.reply_text("📊 朝レポートを生成中...")
-    await asyncio.get_event_loop().run_in_executor(
-        None,
-        lambda: _run_and_reply(update, context, "朝の市況レポートを今すぐ作成してください。指数、USD/JPY、保有全銘柄の株価、東京の天気を含めて"),
-    )
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("📊 朝レポートを生成中...（1〜2分かかります）")
+    from scheduler import _morning_report_prompt
+    loop = asyncio.get_event_loop()
+    try:
+        report = await loop.run_in_executor(None, lambda: run_agent(_morning_report_prompt()))
+        await safe_send(context.bot, chat_id, report)
+    except Exception as e:
+        logger.error(f"朝レポートエラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ レポート生成エラー: {str(e)}")
 
 
 async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
