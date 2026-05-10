@@ -1,25 +1,30 @@
 """
 ケンタエージェント - 3エージェント構成
 ========================================
-
-【AOI（アオイ）】秘書エージェント
-  役割: けんたの窓口。指示を受け取り、分析・デザインを統括して返答する
-  担当: 意図の理解、タスクの振り分け、最終チェック
-
-【SORA（ソラ）】分析エージェント
-  役割: データ収集・調査・分析の専門家
-  担当: ツールを駆使した情報収集、数字の集計、事実確認
-
-【RIO（リオ）】デザインエージェント
-  役割: 出力整形・読みやすさの専門家
-  担当: SORAの生データをTelegram向けに美しく仕上げる
+AOI（秘書）/ SORA（分析）/ RIO（デザイン）
+各エージェントの定義は agents/ ディレクトリのMarkdownファイルを参照
 ========================================
 """
 
+import os
 import anthropic
 from tools import execute_tool
 
 client = anthropic.Anthropic()
+
+# ─────────────────────────────────────────
+# エージェント定義をMarkdownから読み込む
+# ─────────────────────────────────────────
+
+def _load_agent_def(name: str) -> str:
+    """agents/{name}.md を読み込んでシステムプロンプトとして返す"""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_dir, "agents", f"{name}.md")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return f"あなたは{name}エージェントです。"
 
 # ─────────────────────────────────────────
 # 共通プロフィール（全エージェントが共有）
@@ -71,41 +76,19 @@ TOOLS = [
 # 役割: データ収集・調査・分析の専門家
 # ═══════════════════════════════════════════
 
-SORA_SYSTEM = f"""あなたは「SORA（ソラ）」です。
-けんたのパーソナルAIチームの【分析エージェント】として働いています。
-
-【SORAの役割】
-・ツールを積極的に使って必要な情報をすべて収集・分析する
-・株価、市場データ、ニュース、天気、カレンダーなどのデータを正確に取得する
-・収集した生データと分析結果をそのまま出力する
-・整形・装飾はしない（それはRIOの仕事）
-・数字は省略せず正確に出力する
-・エラーが出ても諦めず、代替手段を試みる
-
-【SORAの性格】
-・論理的で正確。データに忠実
-・必要と判断したら追加の調査も自律的に行う
-・「わかりません」より「調べます」を選ぶ
-
-【担当してはいけないこと】
-・出力の見た目を整えること（RIOの仕事）
-・けんたとの直接会話（AOIの仕事）
-
-{KENTA_PROFILE}"""
-
-
 def run_sora(task: str, conversation_history: list = None) -> str:
     """SORA: ツールを使ってデータ収集・分析を実行する"""
     if conversation_history is None:
         conversation_history = []
 
+    sora_system = _load_agent_def("SORA")
     messages = list(conversation_history) + [{"role": "user", "content": task}]
 
     for _ in range(15):
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4096,
-            system=SORA_SYSTEM,
+            system=sora_system,
             tools=TOOLS,
             messages=messages,
         )
@@ -134,32 +117,9 @@ def run_sora(task: str, conversation_history: list = None) -> str:
 # 役割: 出力整形・読みやすさの専門家
 # ═══════════════════════════════════════════
 
-RIO_SYSTEM = f"""あなたは「RIO（リオ）」です。
-けんたのパーソナルAIチームの【デザインエージェント】として働いています。
-
-【RIOの役割】
-・SORAが収集した生データを、Telegramで読みやすい形に整形・美化する
-・情報の優先度を判断して、重要なものを上に持ってくる
-・適切な絵文字・見出し・区切り線を使ってスキャンしやすくする
-・スマホ画面（幅が狭い）を意識したコンパクトなレイアウト
-・投資情報はポジティブ/ネガティブを色分けして明確に
-・金額は円（JPY）優先、USDは補足として（）内に添える
-
-【RIOの性格】
-・美的センスがあり、読みやすさにこだわる
-・情報の取捨選択が得意
-・「伝わる」ことを最優先に考える
-
-【担当してはいけないこと】
-・新たなデータ収集（SORAの仕事）
-・ツールの使用（RIOはツールを持たない）
-・けんたとの直接会話（AOIの仕事）
-
-{KENTA_PROFILE}"""
-
-
 def run_rio(raw_data: str, original_request: str) -> str:
     """RIO: SORAの生データをTelegram向けに整形する"""
+    rio_system = _load_agent_def("RIO")
     prompt = f"""以下のデータを、Telegram向けに読みやすく整形してください。
 
 【けんたの元のリクエスト】
@@ -171,7 +131,7 @@ def run_rio(raw_data: str, original_request: str) -> str:
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=4096,
-        system=RIO_SYSTEM,
+        system=rio_system,
         messages=[{"role": "user", "content": prompt}],
     )
     return "\n".join(b.text for b in response.content if hasattr(b, "text"))
@@ -182,50 +142,18 @@ def run_rio(raw_data: str, original_request: str) -> str:
 # 役割: けんたとの窓口。SORA・RIOを統括する
 # ═══════════════════════════════════════════
 
-AOI_SYSTEM = f"""あなたは「AOI（アオイ）」です。
-けんたのパーソナルAIチームの【秘書エージェント・窓口】として働いています。
-
-【AOIの役割】
-・けんたからの指示を受け取り、意図を正確に理解する
-・SORA（分析）とRIO（デザイン）に適切なタスクを渡して統括する
-・けんたへの最終的な返答の品質を確認する
-・会話の文脈を管理し、前のやり取りを踏まえた対応をする
-・けんたが求めていることを先読みして提案することもある
-
-【AOIの性格】
-・丁寧で頼りになる。けんたの状況をよく理解している
-・できない理由より、できる方法を考える
-・チームのリーダーとして、SORAとRIOを信頼して任せる
-
-【AOIの口調】
-・自然な日本語、親しみやすく
-・余計な前置きなし、要点から入る
-・長すぎず短すぎず
-
-【担当してはいけないこと】
-・自分でデータ収集すること（SORAに任せる）
-・整形・フォーマット（RIOに任せる）
-
-{KENTA_PROFILE}"""
-
-
 def run_agent(user_message: str, conversation_history: list = None) -> str:
     """
     AOI（秘書エージェント）- メインエントリーポイント
-
-    処理フロー:
-    1. AOIがリクエストを理解してSORAへのタスクを定義
-    2. SORAがデータ収集・分析を実行
-    3. RIOが結果を整形
-    4. AOIが最終確認して返答
+    agents/AOI.md の定義に従って動作する
     """
     if conversation_history is None:
         conversation_history = []
 
-    # Step 1: SORAへの指示をAOIが生成
+    aoi_system = _load_agent_def("AOI")
+
     aoi_prompt = f"""けんたから以下のリクエストが届きました。
 SORAに渡す分析タスクを明確に定義してください。
-何を調べて何を返すべきかを具体的に指示してください。
 
 【けんたのリクエスト】
 {user_message}
@@ -238,19 +166,15 @@ SORAへの指示:"""
     aoi_response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1024,
-        system=AOI_SYSTEM,
+        system=aoi_system,
         messages=[{"role": "user", "content": aoi_prompt}],
     )
     sora_task = "\n".join(
         b.text for b in aoi_response.content if hasattr(b, "text")
     )
 
-    # Step 2: SORAが分析実行
     raw_data = run_sora(sora_task, conversation_history)
-
-    # Step 3: RIOが整形
     formatted = run_rio(raw_data, user_message)
-
     return formatted
 
 
