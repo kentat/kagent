@@ -179,7 +179,12 @@ def execute_tool(tool_name, tool_input):
 import xml.etree.ElementTree as ET
 from datetime import timezone, timedelta
 
-def _get_channel_id(handle: str) -> str:
+def get_weather_kansai() -> dict:
+    """大阪（関西）の天気情報を取得する"""
+    return get_weather("Osaka")
+
+
+
     """YouTube Data API v3でハンドルからチャンネルIDを取得（SQLiteキャッシュ付き）"""
     from config import YOUTUBE_API_KEY
     _init_db()
