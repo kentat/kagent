@@ -42,3 +42,16 @@ MORNING_REPORT_HOUR = 7
 MORNING_REPORT_MINUTE = 0
 MARKET_CHECK_HOUR = 23
 MARKET_CHECK_MINUTE = 0
+
+# YouTube監視チャンネル
+YOUTUBE_CHANNELS = [
+    {"name": "ばっちゃまの米国株",          "handle": "bacchama"},
+    {"name": "両学長 リベラルアーツ大学",    "handle": "ryogakucho"},
+    {"name": "株の買い時を考えるチャンネル", "handle": "kabunokaidoki"},
+    {"name": "Makabee（ジム・クレイマー）",  "handle": "makabee7"},
+    {"name": "AI仙人",                       "handle": "AI仙人ch"},
+    {"name": "KEITO【AI&WEB ch】",           "handle": "keitoaiweb"},
+    {"name": "けんすう@AI時代の生き方",      "handle": "kensuu"},
+    {"name": "いけともch",                   "handle": "iketomo-ch"},
+    {"name": "原口沙輔",                     "handle": "sasuke_haraguchi"},
+]

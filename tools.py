@@ -170,3 +170,80 @@ def execute_tool(tool_name, tool_input):
         return json.dumps(result, ensure_ascii=False, indent=2) if not isinstance(result, str) else result
     except Exception as e:
         return f"ツールエラー ({tool_name}): {str(e)}"
+
+
+# ─────────────────────────────────────────
+# YouTube新着動画チェック
+# ─────────────────────────────────────────
+
+import xml.etree.ElementTree as ET
+from datetime import timezone, timedelta
+
+def _get_channel_id(handle: str) -> str:
+    """ハンドルからチャンネルIDを取得（SQLiteキャッシュ付き）"""
+    _init_db()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("CREATE TABLE IF NOT EXISTS yt_channels (handle TEXT PRIMARY KEY, channel_id TEXT, updated_at TEXT)")
+    conn.commit()
+    c.execute("SELECT channel_id FROM yt_channels WHERE handle=?", (handle,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return row[0]
+    try:
+        import re
+        resp = requests.get(f"https://www.youtube.com/@{handle}",
+                            headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+        match = re.search(r'"channelId":"(UC[a-zA-Z0-9_-]{22})"', resp.text)
+        if not match:
+            match = re.search(r'channel/(UC[a-zA-Z0-9_-]{22})', resp.text)
+        if match:
+            cid = match.group(1)
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("INSERT OR REPLACE INTO yt_channels VALUES (?,?,?)",
+                      (handle, cid, datetime.now().isoformat()))
+            conn.commit(); conn.close()
+            return cid
+    except:
+        pass
+    return ""
+
+
+def get_youtube_new_videos(hours: int = 24) -> list:
+    """登録チャンネルの新着動画を取得する"""
+    from config import YOUTUBE_CHANNELS
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    results = []
+    for ch in YOUTUBE_CHANNELS:
+        cid = _get_channel_id(ch["handle"])
+        if not cid:
+            continue
+        try:
+            resp = requests.get(f"https://www.youtube.com/feeds/videos.xml?channel_id={cid}", timeout=10)
+            if resp.status_code != 200:
+                continue
+            ns = {"a": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015"}
+            root = ET.fromstring(resp.content)
+            for entry in root.findall("a:entry", ns)[:5]:
+                pub = entry.findtext("a:published", namespaces=ns, default="")
+                if not pub:
+                    continue
+                pub = pub.replace("Z", "+00:00")
+                try:
+                    published = datetime.fromisoformat(pub)
+                    if published.tzinfo is None:
+                        published = published.replace(tzinfo=timezone.utc)
+                except:
+                    continue
+                if published < cutoff:
+                    continue
+                title = entry.findtext("a:title", namespaces=ns, default="不明")
+                vid = entry.find("yt:videoId", ns)
+                url = f"https://youtu.be/{vid.text}" if vid is not None else ""
+                jst_str = published.astimezone(timezone(timedelta(hours=9))).strftime("%m/%d %H:%M")
+                results.append({"channel": ch["name"], "title": title, "url": url, "published": jst_str})
+        except:
+            continue
+    return sorted(results, key=lambda x: x["published"], reverse=True)

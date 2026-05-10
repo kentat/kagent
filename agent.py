@@ -39,6 +39,7 @@ TOOLS = [
     {"name": "get_notes", "description": "保存済みメモを取得", "input_schema": {"type": "object", "properties": {"category": {"type": "string"}, "limit": {"type": "integer", "default": 10}}, "required": []}},
     {"name": "add_task", "description": "タスクを追加", "input_schema": {"type": "object", "properties": {"title": {"type": "string"}, "due_date": {"type": "string"}}, "required": ["title"]}},
     {"name": "get_tasks", "description": "タスク一覧取得", "input_schema": {"type": "object", "properties": {"status": {"type": "string", "default": "pending"}}, "required": []}},
+    {"name": "get_youtube_new_videos", "description": "登録YouTubeチャンネルの新着動画を取得。「今日の新着動画」「YouTubeの更新」などの質問に使う", "input_schema": {"type": "object", "properties": {"hours": {"type": "integer", "default": 24}}, "required": []}},
     {"name": "complete_task", "description": "タスクを完了にする", "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
 ]
 
