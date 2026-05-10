@@ -17,14 +17,35 @@ client = anthropic.Anthropic()
 # ─────────────────────────────────────────
 
 def _load_agent_def(name: str) -> str:
-    """agents/{name}.md を読み込んでシステムプロンプトとして返す"""
+    """
+    agents/{name}.md を読み込み、COMPANY.md と LESSONS.md と結合して
+    システムプロンプトとして返す。
+    
+    全エージェントが会社全体のルールと学習記録を共有する。
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(base_dir, "agents", f"{name}.md")
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return f"あなたは{name}エージェントです。"
+    agents_dir = os.path.join(base_dir, "agents")
+
+    def read_md(filename: str) -> str:
+        try:
+            with open(os.path.join(agents_dir, filename), "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            return ""
+
+    company = read_md("COMPANY.md")
+    lessons = read_md("LESSONS.md")
+    agent_def = read_md(f"{name}.md")
+
+    parts = []
+    if company:
+        parts.append(f"# 会社全体のルール\n{company}")
+    if lessons:
+        parts.append(f"# 学習記録（過去のミスと対策）\n{lessons}")
+    if agent_def:
+        parts.append(f"# あなたの職務定義\n{agent_def}")
+
+    return "\n\n---\n\n".join(parts) if parts else f"あなたは{name}エージェントです。"
 
 # ─────────────────────────────────────────
 # 共通プロフィール（全エージェントが共有）
