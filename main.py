@@ -16,6 +16,7 @@ from telegram.ext import (
 from config import TELEGRAM_TOKEN, ALLOWED_USER_ID, MY_PORTFOLIO
 from agent import run_agent
 from scheduler import setup_scheduler
+from storage import get_conversation, set_conversation, clear_conversation
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,8 +24,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ユーザーごとの会話履歴（インメモリ、最大20メッセージ）
-conversation_histories: dict[int, list] = {}
+# 会話履歴は storage.py 経由（Redis移行対応済み）
+# conversation_histories dict は storage.py に移動済み
 
 
 # ─────────────────────────────────────────
@@ -90,7 +91,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
-    conversation_histories[update.effective_user.id] = []
+    clear_conversation(update.effective_user.id)
     await update.message.reply_text("🧹 会話履歴をリセットしました")
 
 
@@ -158,7 +159,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         next_run = job.next_run_time.strftime("%m/%d %H:%M") if job.next_run_time else "未定"
         jobs.append(f"• {job.id}: 次回 {next_run}")
 
-    history_count = len(conversation_histories.get(update.effective_user.id, []))
+    history_count = len(get_conversation(update.effective_user.id))
     msg = (
         f"✅ *エージェント稼働中*\n\n"
         f"会話履歴: {history_count}件\n"
@@ -184,22 +185,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # タイピング表示
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
-    # 会話履歴取得
-    history = conversation_histories.get(user_id, [])
+    # 会話履歴取得（storage.py経由）
+    history = get_conversation(user_id)
 
     try:
-        # エージェント実行（同期関数をexecutorで実行）
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None, lambda: run_agent(user_message, history)
         )
 
-        # 履歴更新（最大20件）
-        history = history + [
+        # 履歴更新（storage.py経由）
+        set_conversation(user_id, history + [
             {"role": "user", "content": user_message},
             {"role": "assistant", "content": response},
-        ]
-        conversation_histories[user_id] = history[-20:]
+        ])
 
         await safe_send(context.bot, chat_id, response)
 
