@@ -42,8 +42,8 @@ get_weather で東京の天気を取得
 get_tasks で未完了タスク一覧を取得
 
 === STEP 5: YouTube新着動画 ===
-get_youtube_new_videos で昨日からの新着動画を取得
-→ タイトルとURLをリスト表示
+get_youtube_new_videos hours=48 で過去48時間の新着動画を取得
+→ タイトルとURLをリスト表示。1件もなければ「過去48時間の新着なし」と表示
 
 === STEP 6: カレンダー ===
 get_calendar_events で今日〜3日分の予定を取得
