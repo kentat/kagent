@@ -44,7 +44,7 @@ MARKET_CHECK_HOUR = 23
 MARKET_CHECK_MINUTE = 0
 
 # YouTube監視チャンネル
-YOUTUBE_API_KEY = "AIzaSyAc7C1UQ_1V0IT5gTkApv0DJ9-UjWJal5E"
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
 
 YOUTUBE_CHANNELS = [
     {"name": "ばっちゃまの米国株",          "handle": "bacchama"},
