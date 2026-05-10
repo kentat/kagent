@@ -114,26 +114,37 @@ async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """ポートフォリオ一括確認"""
     if not is_allowed(update.effective_user.id):
         return
-    tickers = ", ".join(MY_PORTFOLIO["holdings"])
-    await update.message.reply_text(f"📈 ポートフォリオ確認中（{tickers}）...")
-    response = run_agent(f"保有銘柄 {tickers} の現在株価と前日比を一覧で表示してください")
-    await safe_send(context.bot, update.effective_chat.id, response)
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("📈 ポートフォリオ確認中...（しばらくお待ちください）")
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None, lambda: run_agent("保有銘柄全銘柄の含み損益・前日比を円換算で一覧表示してください")
+    )
+    await safe_send(context.bot, chat_id, response)
 
 
 async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """タスク一覧表示"""
     if not is_allowed(update.effective_user.id):
         return
-    response = run_agent("未完了のタスク一覧を表示してください")
-    await safe_send(context.bot, update.effective_chat.id, response)
+    chat_id = update.effective_chat.id
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None, lambda: run_agent("未完了のタスク一覧を表示してください")
+    )
+    await safe_send(context.bot, chat_id, response)
 
 
 async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """最近のメモ表示"""
     if not is_allowed(update.effective_user.id):
         return
-    response = run_agent("最近保存したメモを10件表示してください")
-    await safe_send(context.bot, update.effective_chat.id, response)
+    chat_id = update.effective_chat.id
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None, lambda: run_agent("最近保存したメモを10件表示してください")
+    )
+    await safe_send(context.bot, chat_id, response)
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
