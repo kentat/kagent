@@ -428,8 +428,3 @@ def get_keihan_status() -> dict:
 
     except Exception as e:
         return {"status": "⚠️ 取得エラー", "detail": str(e), "url": "https://www.keihan.co.jp/traffic/unkou/"}
-
-
-
-    """大阪（関西）の天気情報を取得する"""
-    return get_weather("Osaka")
