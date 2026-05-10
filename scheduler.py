@@ -36,11 +36,24 @@ get_portfolio_pnl でポートフォリオ全銘柄の損益を取得
 → 上昇トップ3・下落ワースト3・監視銘柄も表示
 
 === STEP 3: 天気 ===
-get_weather city=Osaka で大阪府の天気を取得
-get_weather city=Kyoto で京都府の天気を取得
+必ず以下2つのツールを両方呼び出すこと：
+- get_weather city=Osaka → 大阪の天気
+- get_weather city=Kyoto → 京都の天気
+両方の結果を必ずレポートに含めること
 
 === STEP 3.5: 市場心理 ===
 get_fear_greed_index でFear & Greed Indexを取得
+
+=== STEP 4: タスク ===
+get_tasks で未完了タスク一覧を取得
+
+=== STEP 5: YouTube新着動画 ===
+必ず get_youtube_new_videos hours=48 を呼び出すこと
+- 動画がある場合：タイトルとURLをリスト表示
+- 動画がない場合：「📭 過去48時間の新着動画はありませんでした」と必ず明記すること
+
+=== STEP 6: カレンダー ===
+get_calendar_events で今日〜3日分の予定を取得
 
 === STEP 4: タスク ===
 get_tasks で未完了タスク一覧を取得
