@@ -205,7 +205,28 @@ def main():
     if not TELEGRAM_TOKEN:
         raise ValueError("TELEGRAM_TOKEN が設定されていません。.envを確認してください")
 
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    async def post_init(app):
+        """起動時に実行：コマンド登録＋スケジューラー起動"""
+        await app.bot.set_my_commands([
+            BotCommand("morning", "朝レポートを今すぐ実行"),
+            BotCommand("portfolio", "ポートフォリオ株価確認"),
+            BotCommand("tasks", "タスク一覧"),
+            BotCommand("notes", "メモ一覧"),
+            BotCommand("clear", "会話履歴リセット"),
+            BotCommand("status", "エージェント状態"),
+            BotCommand("help", "ヘルプ"),
+        ])
+        if ALLOWED_USER_ID:
+            setup_scheduler(app.bot, ALLOWED_USER_ID)
+            logger.info(f"✅ スケジューラー起動完了（送信先: {ALLOWED_USER_ID}）")
+
+    # ApplicationBuilderのpost_initで確実に起動
+    app = (
+        Application.builder()
+        .token(TELEGRAM_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     # コマンド登録
     app.add_handler(CommandHandler("start", cmd_start))
@@ -219,22 +240,6 @@ def main():
 
     # メッセージハンドラ
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # スケジューラー起動（ALLOWED_USER_IDにレポート送信）
-    if ALLOWED_USER_ID:
-        async def post_init(app):
-            await app.bot.set_my_commands([
-                BotCommand("morning", "朝レポートを今すぐ実行"),
-                BotCommand("portfolio", "ポートフォリオ株価確認"),
-                BotCommand("tasks", "タスク一覧"),
-                BotCommand("notes", "メモ一覧"),
-                BotCommand("clear", "会話履歴リセット"),
-                BotCommand("status", "エージェント状態"),
-                BotCommand("help", "ヘルプ"),
-            ])
-            setup_scheduler(app.bot, ALLOWED_USER_ID)
-
-        app.post_init = post_init
 
     logger.info("🤖 ケンタエージェント起動")
     app.run_polling(drop_pending_updates=True)
