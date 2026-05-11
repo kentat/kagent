@@ -304,89 +304,90 @@ STEVEに渡す分析タスクを明確に定義してください。
 
 def generate_daily_report() -> str:
     """
-    坂本が1日の作業ログ・課題・提案をまとめて日報を作成する
-    スケジューラーから平日朝7時に呼ばれる
+    坂本が1日の作業ログ・課題・提案をエージェント別にまとめた日報を作成する
+    市況データは含まない。純粋にチームの活動記録。
     """
     from datetime import datetime
-
     today = datetime.now().strftime("%Y-%m-%d")
-    logs = get_agent_logs(date=today, limit=50)
-    comm_logs = get_comm_logs(date=today, limit=30)
-    open_issues = get_issues(include_done=False)
-    issues_only = [i for i in open_issues if i["type"] == "issue"]
-    proposals = [i for i in open_issues if i["type"] == "proposal"]
+    today_jp = datetime.now().strftime("%Y年%-m月%-d日")
 
-    sakamoto_system = _load_agent_def("SAKAMOTO")
+    logs       = get_agent_logs(date=today, limit=50)
+    comm_logs  = get_comm_logs(date=today, limit=30)
+    all_issues = get_issues(include_done=False)
+    issues     = [i for i in all_issues if i["type"] == "issue"]
+    proposals  = [i for i in all_issues if i["type"] == "proposal"]
 
-    # 作業ログをテキスト化
-    log_text = ""
-    if logs:
-        log_text = "## 作業ログ\n"
-        for log in logs:
-            log_text += f"- [{log['time'][11:16]}] {log['agent']}: {log['task'][:100]}"
-            if log['issues']:
-                log_text += f" ⚠️ {log['issues'][:80]}"
-            log_text += "\n"
+    # エージェント別に作業ログを整理
+    agent_logs = {"SAKAMOTO": [], "STEVE": [], "JOHNNY": []}
+    for log in logs:
+        agent = log["agent"]
+        if agent in agent_logs:
+            agent_logs[agent].append(log)
 
-    # 通信ログをテキスト化
-    comm_text = ""
+    # 日報テキストを直接構築（Claudeを通さず構造化して返す）
+    lines = [f"📋 日報 {today_jp}\n"]
+
+    for agent, emoji, role in [
+        ("SAKAMOTO", "🏯", "秘書"),
+        ("STEVE",    "💡", "分析"),
+        ("JOHNNY",   "🎨", "デザイン"),
+    ]:
+        logs_for = agent_logs.get(agent, [])
+        lines.append(f"{emoji} **{agent}（{role}）**")
+        lines.append("─" * 20)
+
+        # 作業内容
+        if logs_for:
+            lines.append("**📝 作業内容**")
+            for log in logs_for:
+                t = log["time"][11:16]
+                lines.append(f"  [{t}] {log['task']}")
+                if log["result"]:
+                    lines.append(f"  → {log['result'][:120]}")
+        else:
+            lines.append("**📝 作業内容**: 本日の記録なし")
+
+        # エージェント固有の課題
+        agent_issues = [i for i in issues if i["agent"] == agent]
+        if agent_issues:
+            lines.append("\n**⚠️ 課題リスト**")
+            for i in agent_issues:
+                lines.append(f"  #{i['id']} {i['status_label']} {i['title']}")
+                if i["detail"]:
+                    lines.append(f"    └ {i['detail'][:100]}")
+        
+        # エージェント固有の提案
+        agent_props = [p for p in proposals if p["agent"] == agent]
+        if agent_props:
+            lines.append("\n**💡 改善提案・アイデア**")
+            for p in agent_props:
+                lines.append(f"  #{p['id']} {p['status_label']} {p['title']}")
+                if p["detail"]:
+                    lines.append(f"    └ {p['detail'][:100]}")
+
+        lines.append("")
+
+    # 通信ログサマリー
     if comm_logs:
-        comm_text = "## エージェント間通信\n"
-        for c in comm_logs[:10]:
-            comm_text += f"- [{c['time'][11:16]}] {c['from']}→{c['to']} ({c['type']}): {c['content'][:80]}\n"
+        lines.append("🔗 **エージェント間通信サマリー**")
+        lines.append("─" * 20)
+        for c in comm_logs[:8]:
+            t = c["time"][11:16]
+            lines.append(f"  [{t}] {c['from']} → {c['to']}: {c['content'][:80]}")
+        lines.append("")
 
-    # 課題をテキスト化
-    issues_text = "## 課題リスト（オープン）\n"
-    if issues_only:
-        for i in issues_only:
-            issues_text += f"- #{i['id']} [{i['agent']}] {i['status_label']} {i['title']}\n"
+    # 全体課題・提案が空の場合
+    if not issues and not proposals:
+        lines.append("✅ 未解決の課題・提案はありません")
+
+    lines.append("─" * 20)
+    lines.append("土佐より、坂本より一言：")
+    if logs:
+        lines.append("今日もSTEVEとJOHNNYがしっかり働いてくれたき、感謝ぜよ！")
     else:
-        issues_text += "現在オープンな課題はありません\n"
+        lines.append("本日はまだ作業記録がないぜよ。これから頑張るき！")
 
-    # 提案をテキスト化
-    proposals_text = "## 機能提案リスト（オープン）\n"
-    if proposals:
-        for p in proposals:
-            proposals_text += f"- #{p['id']} [{p['agent']}] {p['status_label']} {p['title']}\n"
-    else:
-        proposals_text += "現在オープンな提案はありません\n"
-
-    prompt = f"""今日1日の作業をまとめて、けんたへの日報を作成してください。
-
-{log_text}
-
-{comm_text}
-
-{issues_text}
-
-{proposals_text}
-
-日報フォーマット：
-📋 日報 [{today}]
----
-**今日のサマリー**（3行以内）
----
-**各エージェントの作業**
-・STEVE: 完了したこと・課題
-・JOHNNY: 完了したこと
----
-**課題進捗（GTD）**
-（オープンな課題をステータス別にまとめる）
----
-**機能提案リスト**
-（オープンな提案をまとめる）
----
-**明日への引き継ぎ**（あれば）
----
-**坂本からひとこと**（高知弁で前向きに）"""
-
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2048,
-        system=sakamoto_system,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return "\n".join(b.text for b in response.content if hasattr(b, "text"))
+    return "\n".join(lines)
 
 
 def _format_history(history: list) -> str:
