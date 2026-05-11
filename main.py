@@ -112,15 +112,13 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    await update.message.reply_text("📡 データ収集中...少し待っちょれや🙏")
+    await update.message.reply_text("📡 STEVEがデータ収集中...少し待っちょれや🙏")
     from scheduler import collect_morning_data, send_morning_report
-    from storage import save_report_cache
-    loop = asyncio.get_running_loop()
     try:
-        # Step1: データ収集（STEVE）
-        await loop.run_in_executor(None, lambda: collect_morning_data.__wrapped__(context.bot, chat_id) if hasattr(collect_morning_data, '__wrapped__') else None)
-        await update.message.reply_text("✅ データ収集完了。整形中...")
-        # Step2: 整形して送信（JOHNNY）
+        # Step1: STEVEがデータ収集
+        await collect_morning_data(context.bot, chat_id)
+        await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了。JOHNNYが整形中...")
+        # Step2: JOHNNYが整形して送信
         await send_morning_report(context.bot, chat_id)
     except Exception as e:
         logger.error(f"朝レポートエラー: {e}", exc_info=True)

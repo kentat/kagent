@@ -83,16 +83,19 @@ def _design_prompt(raw_data: str) -> str:
 
 async def collect_morning_data(bot, chat_id: int):
     """5:30 - STEVEがデータ収集してRedisに保存（AIコスト最小）"""
+    import asyncio
     try:
         logger.info("朝データ収集開始（5:30バッチ）")
-        raw_data = run_steve(_data_collection_prompt())
+        loop = asyncio.get_event_loop()
+        raw_data = await loop.run_in_executor(
+            None, lambda: run_steve(_data_collection_prompt())
+        )
 
         # 生データをRedisに保存（1時間TTL）
         if _use_redis():
             _get_redis().setex(_RAW_DATA_KEY, _RAW_DATA_TTL, raw_data)
             logger.info(f"✅ 生データをRedisに保存（{len(raw_data)}文字）")
         else:
-            # Redisなければメモリに保存
             scheduler._morning_raw_data = raw_data
             logger.info("✅ 生データをメモリに保存（Redisなし）")
 
@@ -102,6 +105,7 @@ async def collect_morning_data(bot, chat_id: int):
 
 async def send_morning_report(bot, chat_id: int):
     """6:00 - 保存済み生データをJOHNNYが整形して送信（高速・低コスト）"""
+    import asyncio
     try:
         logger.info("朝レポート送信開始（6:00）")
 
@@ -116,10 +120,16 @@ async def send_morning_report(bot, chat_id: int):
             # 生データがなければその場で収集（フォールバック）
             logger.warning("生データなし → その場でデータ収集")
             await bot.send_message(chat_id=chat_id, text="📊 朝レポートを作成中...")
-            raw_data = run_steve(_data_collection_prompt())
+            loop = asyncio.get_event_loop()
+            raw_data = await loop.run_in_executor(
+                None, lambda: run_steve(_data_collection_prompt())
+            )
 
-        # JOHNNYが整形
-        report = run_johnny(raw_data, _design_prompt(raw_data))
+        # JOHNNYが整形（executor経由）
+        loop = asyncio.get_event_loop()
+        report = await loop.run_in_executor(
+            None, lambda: run_johnny(raw_data, _design_prompt(raw_data))
+        )
         save_report_cache("morning", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("朝レポート送信完了")
