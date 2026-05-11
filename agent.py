@@ -94,6 +94,10 @@ TOOLS = [
     {"name": "add_agent_proposal", "description": "機能改善提案をGTDリストに追加する", "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}, "title": {"type": "string"}, "detail": {"type": "string", "default": ""}}, "required": ["agent_name", "title"]}},
     {"name": "update_gtd_status", "description": "課題・提案のGTDステータスを更新する", "input_schema": {"type": "object", "properties": {"issue_id": {"type": "integer"}, "gtd_status": {"type": "string"}}, "required": ["issue_id", "gtd_status"]}},
     {"name": "get_all_issues", "description": "課題・提案一覧を取得する", "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}, "issue_type": {"type": "string"}}, "required": []}},
+    {"name": "get_google_task_lists", "description": "Googleタスクのリスト一覧を取得する", "input_schema": {"type": "object", "properties": {}, "required": []}},
+    {"name": "get_google_tasks", "description": "Googleタスクのリストからタスクを取得。バケツリストなど", "input_schema": {"type": "object", "properties": {"tasklist_title": {"type": "string", "default": "バケツリスト"}, "show_completed": {"type": "boolean", "default": False}}, "required": []}},
+    {"name": "add_google_task", "description": "Googleタスクにタスクを追加する", "input_schema": {"type": "object", "properties": {"title": {"type": "string"}, "notes": {"type": "string", "default": ""}, "due": {"type": "string", "default": ""}, "tasklist_title": {"type": "string", "default": "バケツリスト"}}, "required": ["title"]}},
+    {"name": "complete_google_task", "description": "Googleタスクを完了にする", "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}, "tasklist_title": {"type": "string", "default": "バケツリスト"}}, "required": ["task_id"]}},
 ]
 
 

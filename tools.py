@@ -451,6 +451,10 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         "add_agent_proposal": add_agent_proposal,
         "update_gtd_status": update_gtd_status,
         "get_all_issues": get_all_issues,
+        "get_google_task_lists": get_google_task_lists,
+        "get_google_tasks": get_google_tasks,
+        "add_google_task": add_google_task,
+        "complete_google_task": complete_google_task,
     }
     fn = dispatch.get(tool_name)
     if not fn:
@@ -497,3 +501,137 @@ def update_gtd_status(issue_id: int, gtd_status: str) -> str:
 def get_all_issues(agent_name: str = None, issue_type: str = None) -> list:
     """課題・提案一覧を取得する"""
     return get_issues(agent_name=agent_name, issue_type=issue_type, include_done=False)
+
+
+# ─────────────────────────────────────────
+# Google Tasks
+# ─────────────────────────────────────────
+
+def _get_google_creds():
+    """Google OAuth認証情報を取得する"""
+    from google.oauth2.credentials import Credentials
+    return Credentials(
+        token=None,
+        refresh_token=os.getenv("GOOGLE_REFRESH_TOKEN", ""),
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=os.getenv("GOOGLE_CLIENT_ID", ""),
+        client_secret=os.getenv("GOOGLE_CLIENT_SECRET", ""),
+        scopes=[
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/tasks",
+        ],
+    )
+
+
+def get_google_task_lists() -> list:
+    """Googleタスクのリスト一覧を取得する"""
+    try:
+        from googleapiclient.discovery import build
+        service = build("tasks", "v1", credentials=_get_google_creds())
+        result = service.tasklists().list(maxResults=20).execute()
+        lists = result.get("items", [])
+        return [{"id": l["id"], "title": l["title"]} for l in lists]
+    except Exception as e:
+        return [{"error": str(e)}]
+
+
+def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed: bool = False) -> list:
+    """指定したリストのタスクを取得する"""
+    try:
+        from googleapiclient.discovery import build
+        service = build("tasks", "v1", credentials=_get_google_creds())
+
+        # リスト一覧からIDを取得
+        lists_result = service.tasklists().list(maxResults=20).execute()
+        tasklist_id = None
+        for l in lists_result.get("items", []):
+            if tasklist_title.lower() in l["title"].lower():
+                tasklist_id = l["id"]
+                break
+
+        if not tasklist_id:
+            # タイトルが見つからなければ最初のリストを使用
+            items = lists_result.get("items", [])
+            if items:
+                tasklist_id = items[0]["id"]
+            else:
+                return [{"error": "タスクリストが見つかりません"}]
+
+        result = service.tasks().list(
+            tasklist=tasklist_id,
+            showCompleted=show_completed,
+            showHidden=show_completed,
+            maxResults=50,
+        ).execute()
+
+        tasks = result.get("items", [])
+        return [
+            {
+                "id": t["id"],
+                "title": t.get("title", ""),
+                "status": t.get("status", ""),
+                "due": t.get("due", ""),
+                "notes": t.get("notes", ""),
+                "tasklist_id": tasklist_id,
+            }
+            for t in tasks
+        ]
+    except Exception as e:
+        return [{"error": str(e)}]
+
+
+def add_google_task(title: str, notes: str = "", due: str = "",
+                    tasklist_title: str = "バケツリスト") -> str:
+    """Googleタスクにタスクを追加する"""
+    try:
+        from googleapiclient.discovery import build
+        service = build("tasks", "v1", credentials=_get_google_creds())
+
+        lists_result = service.tasklists().list(maxResults=20).execute()
+        tasklist_id = None
+        for l in lists_result.get("items", []):
+            if tasklist_title.lower() in l["title"].lower():
+                tasklist_id = l["id"]
+                break
+        if not tasklist_id:
+            items = lists_result.get("items", [])
+            tasklist_id = items[0]["id"] if items else "@default"
+
+        task_body = {"title": title}
+        if notes:
+            task_body["notes"] = notes
+        if due:
+            task_body["due"] = due
+
+        result = service.tasks().insert(
+            tasklist=tasklist_id, body=task_body
+        ).execute()
+        return f"✅ タスク追加: {result.get('title', title)}"
+    except Exception as e:
+        return f"⚠️ タスク追加エラー: {str(e)}"
+
+
+def complete_google_task(task_id: str, tasklist_title: str = "バケツリスト") -> str:
+    """Googleタスクを完了にする"""
+    try:
+        from googleapiclient.discovery import build
+        service = build("tasks", "v1", credentials=_get_google_creds())
+
+        lists_result = service.tasklists().list(maxResults=20).execute()
+        tasklist_id = None
+        for l in lists_result.get("items", []):
+            if tasklist_title.lower() in l["title"].lower():
+                tasklist_id = l["id"]
+                break
+        if not tasklist_id:
+            items = lists_result.get("items", [])
+            tasklist_id = items[0]["id"] if items else "@default"
+
+        service.tasks().patch(
+            tasklist=tasklist_id,
+            task=task_id,
+            body={"status": "completed"},
+        ).execute()
+        return f"✅ タスク完了: #{task_id}"
+    except Exception as e:
+        return f"⚠️ タスク完了エラー: {str(e)}"
