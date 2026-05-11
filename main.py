@@ -162,17 +162,24 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
 
-    jobs = []
-    from scheduler import scheduler
-    for job in scheduler.get_jobs():
-        next_run = job.next_run_time.strftime("%m/%d %H:%M") if job.next_run_time else "未定"
-        jobs.append(f"• {job.id}: 次回 {next_run}")
+    try:
+        from scheduler import scheduler
+        jobs = []
+        for job in scheduler.get_jobs():
+            if job.next_run_time:
+                next_run = job.next_run_time.strftime("%m/%d %H:%M")
+            else:
+                next_run = "未定"
+            jobs.append(f"• {job.id}: 次回 {next_run}")
+        jobs_text = "\n".join(jobs) if jobs else "• スケジューラー未起動"
+    except Exception as e:
+        jobs_text = f"• 取得エラー: {str(e)}"
 
     history_count = len(get_conversation(update.effective_user.id))
     msg = (
         f"✅ *エージェント稼働中*\n\n"
         f"会話履歴: {history_count}件\n"
-        f"定期タスク:\n" + "\n".join(jobs)
+        f"定期タスク:\n{jobs_text}"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
