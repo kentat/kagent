@@ -91,7 +91,20 @@ async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🧹 会話履歴をリセットしました")
 
 
-async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """日報を即時生成"""
+    if not is_allowed(update.effective_user.id):
+        return
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("📋 日報を生成中...")
+    loop = asyncio.get_event_loop()
+    try:
+        from agent import generate_daily_report
+        report = await loop.run_in_executor(None, generate_daily_report)
+        await deliver(context.bot, chat_id, report, OutputChannel.TELEGRAM)
+    except Exception as e:
+        logger.error(f"日報エラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ 日報生成エラー: {str(e)}")
     """朝レポートを即時実行"""
     if not is_allowed(update.effective_user.id):
         return
@@ -215,7 +228,8 @@ def main():
     async def post_init(app):
         """起動時に実行：コマンド登録＋スケジューラー起動"""
         await app.bot.set_my_commands([
-            BotCommand("morning", "朝レポートを今すぐ実行"),
+            BotCommand("morning", "朝の市況レポートを今すぐ実行"),
+            BotCommand("report", "日報を今すぐ確認"),
             BotCommand("portfolio", "ポートフォリオ株価確認"),
             BotCommand("tasks", "タスク一覧"),
             BotCommand("notes", "メモ一覧"),
@@ -240,6 +254,7 @@ def main():
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("clear", cmd_clear))
     app.add_handler(CommandHandler("morning", cmd_morning))
+    app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
     app.add_handler(CommandHandler("tasks", cmd_tasks))
     app.add_handler(CommandHandler("notes", cmd_notes))
