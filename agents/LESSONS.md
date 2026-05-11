@@ -7,6 +7,29 @@
 
 ## ═══ 開発ルール（push前に毎回実行） ═══
 
+### 自動チェック体制（設定済み）
+
+```
+git commit → pre-commit が自動実行（ローカル）
+    ├─ ① 構文チェック（check-ast）
+    ├─ ② シークレット検出（detect-secrets）
+    ├─ ③ セキュリティスキャン（bandit）
+    └─ ④ コード品質（ruff）
+
+git push → GitHub Actions が自動実行（クラウド）
+    ├─ Job1: Gitleaks（Git履歴全体のシークレットスキャン）
+    ├─ Job2: bandit + Safety（依存ライブラリの脆弱性）
+    ├─ Job3: 構文・整合性・認証チェック
+    └─ Job4: ハードコーディング・エラー漏洩チェック
+```
+
+**初回セットアップ（Ubuntu/WSL2で1回だけ）:**
+```bash
+cd ~/kagent && bash setup-dev.sh
+```
+
+### 手動チェック（必要な場合）
+
 ### ① セキュリティスキャン（ハードコード禁止）
 
 ```bash

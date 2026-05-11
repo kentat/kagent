@@ -1,0 +1,16 @@
+# Gitleaks カスタム設定
+# 誤検知を減らすための除外設定
+
+[allowlist]
+  description = "除外ファイル"
+  files = [
+    '''^\.env\.example$''',
+    '''\.md$''',
+  ]
+  
+  # 例示用の文字列は除外
+  regexes = [
+    '''YOUR_.*_HERE''',
+    '''xxx+''',
+    '''\{[a-z_]+\}''',
+  ]

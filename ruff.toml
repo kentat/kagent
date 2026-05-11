@@ -1,0 +1,11 @@
+# Ruff設定（Python リンター）
+line-length = 120
+exclude = ["docs", "agents", ".git"]
+
+[lint]
+select = ["E", "W", "F"]
+ignore = [
+  "E501",  # 行の長さ（120文字許容）
+  "E402",  # モジュールのインポート順
+  "F401",  # 未使用インポート（許容）
+]
