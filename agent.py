@@ -359,7 +359,7 @@ def generate_daily_report() -> str:
                 lines.append(f"  #{i['id']} {i['status_label']} {i['title']}")
                 if i["detail"]:
                     lines.append(f"    └ {i['detail'][:100]}")
-        
+
         # エージェント固有の提案
         agent_props = [p for p in proposals if p["agent"] == agent]
         if agent_props:

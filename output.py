@@ -6,10 +6,10 @@
 
 使い方:
     from output import OutputChannel, format_for_channel
-    
+
     # Telegramに送信（現在のデフォルト）
     text = format_for_channel(report, OutputChannel.TELEGRAM)
-    
+
     # 将来: HTMLに変換
     html = format_for_channel(report, OutputChannel.HTML)
 ================================================
