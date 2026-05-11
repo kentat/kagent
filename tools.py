@@ -365,25 +365,11 @@ def get_youtube_new_videos(hours: int = 48) -> list:
 # ─────────────────────────────────────────
 
 def get_calendar_events(days: int = 3) -> list:
-    from google.oauth2.credentials import Credentials
-    from googleapiclient.discovery import build
-
-    client_id = os.getenv("GOOGLE_CLIENT_ID", "")
-    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "")
-
-    if not all([client_id, client_secret, refresh_token]):
-        return [{"error": "Google認証情報が設定されていません"}]
+    """Googleカレンダーから予定を取得する"""
     try:
-        creds = Credentials(
-            token=None,
-            refresh_token=refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret,
-            scopes=["https://www.googleapis.com/auth/calendar.readonly"],
-        )
-        service = build("calendar", "v3", credentials=creds)
+        from googleapiclient.discovery import build
+        # _get_google_creds()でスコープを統一（calendar + tasks）
+        service = build("calendar", "v3", credentials=_get_google_creds())
         jst = timezone(timedelta(hours=9))
         now = datetime.now(jst)
         time_min = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
