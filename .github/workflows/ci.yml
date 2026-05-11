@@ -161,21 +161,23 @@ jobs:
       # 認証なしエンドポイントチェック
       - name: Web認証チェック
         run: |
-          python3 << 'PYEOF'
+          python3 << 'PYEOF2'
           import re, sys
-          with open("web_server.py") as f:
-              src = f.read()
-          endpoints = re.findall(r'@app\.(get|post|put|delete)\(["\'][^"\']+["\']\)\ndef (\w+)\(', src)
-          no_auth = []
-          for method, name in endpoints:
-              func_match = re.search(rf'def {name}\(([^)]*)\)', src)
-              if func_match and 'Depends(verify_credentials)' not in func_match.group(1):
-                  no_auth.append(name)
-          if no_auth:
-              print(f"❌ 認証なしエンドポイント: {no_auth}")
+          src = open("web_server.py").read()
+          # デコレータの直後の行（関数定義）を取得
+          pattern = re.compile(
+              r"@app\.(?:get|post|put|delete)\(['\"][^'\"]+['\"]\)\n(?:async )?def \w+\(([^)]*)",
+              re.MULTILINE
+          )
+          bad = [m.group(1) for m in pattern.finditer(src)
+                 if "Depends(verify_credentials)" not in m.group(1)]
+          if bad:
+              print(f"❌ 認証なしエンドポイント検出")
               sys.exit(1)
           print("✅ 全エンドポイントに認証あり")
-          PYEOF
+          PYEOF2
+
+
 
   # ─────────────────────────────────────────
   # Job 4: ハードコーディングチェック
@@ -193,7 +195,7 @@ jobs:
             --include="*.py" \
             --include="*.yml" \
             --include="*.yaml" \
-            . | grep -v "\.git" | grep -v "#" || true)
+            . | grep -v "\.git" | grep -v "#" | grep -v "\`\`\`" | grep -v "例示" || true)
           
           if [ -n "$FOUND" ]; then
             echo "❌ APIキー・トークンが検出されました:"

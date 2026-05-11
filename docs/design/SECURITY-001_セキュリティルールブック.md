@@ -18,9 +18,9 @@
 | APIキー | `sk-ant-...`, `AIzaSy...` |
 | OAuthトークン | `1//0e...`, `GOCSPX-...` |
 | パスワード | `kenta2026`, `admin123` |
-| BOTトークン | `8517618483:AAH...` |
+| BOTトークン | `{BOT_TOKEN}...` |
 | GitHubトークン | `github_pat_...` |
-| ユーザーID | `8609780798` |
+| ユーザーID | `{YOUR_USER_ID}` |
 
 **✅ 正しい書き方:**
 ```python

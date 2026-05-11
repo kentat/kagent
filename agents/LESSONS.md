@@ -96,7 +96,7 @@ PYEOF
 |------|------|------------|
 | APIキー | `"AIzaSy..."` を直書き | `os.getenv("YOUTUBE_API_KEY", "")` |
 | パスワード | `getenv("PW", "kenta2026")` | `getenv("PW", "")` + 未設定時はsys.exit() |
-| ユーザーID | `"8609780798"` を直書き | `os.getenv("ALLOWED_USER_ID", "0")` |
+| ユーザーID | `"{YOUR_USER_ID}"` を直書き | `os.getenv("ALLOWED_USER_ID", "0")` |
 | .mdファイル | 実際のキー・IDを記載 | `{user_id}` などプレースホルダーを使う |
 
 **インシデント発生時:**
