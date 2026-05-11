@@ -1,9 +1,9 @@
 """
-ケンタエージェント - 3エージェント構成
-========================================
-AOI（秘書）/ SORA（分析）/ RIO（デザイン）
-各エージェントの定義は agents/ ディレクトリのMarkdownファイルを参照
-========================================
+Kenta Agent Company - 3エージェント構成
+==========================================
+坂本（秘書・窓口） / STEVE（分析） / JOHNNY（デザイン）
+各エージェントの定義は agents/ のMarkdownファイルを参照
+==========================================
 """
 
 import os
@@ -12,17 +12,13 @@ from tools import execute_tool
 
 client = anthropic.Anthropic()
 
+
 # ─────────────────────────────────────────
-# エージェント定義をMarkdownから読み込む
+# Markdownからエージェント定義を読み込む
+# COMPANY.md + LESSONS.md + {NAME}.md を結合
 # ─────────────────────────────────────────
 
 def _load_agent_def(name: str) -> str:
-    """
-    agents/{name}.md を読み込み、COMPANY.md と LESSONS.md と結合して
-    システムプロンプトとして返す。
-    
-    全エージェントが会社全体のルールと学習記録を共有する。
-    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     agents_dir = os.path.join(base_dir, "agents")
 
@@ -47,26 +43,9 @@ def _load_agent_def(name: str) -> str:
 
     return "\n\n---\n\n".join(parts) if parts else f"あなたは{name}エージェントです。"
 
-# ─────────────────────────────────────────
-# 共通プロフィール（全エージェントが共有）
-# ─────────────────────────────────────────
-
-KENTA_PROFILE = """
-【けんたのプロフィール】
-名前: けんたろう（健太郎）
-職業: サーバー運用・監視、カスタマーサクセス（2026年4月より新職場）
-家族: 配偶者（稚子）、子供2人（諒・かりん）の4人家族
-居住: 関西（京阪電車沿線）
-関心: 米国株式投資、テクノロジー、Vocaloid/ハイパーポップ、音楽
-
-【投資ポートフォリオ】
-保有: B,GM,UNFI,EAT,VYM,LITE,SYF,TWLO,EZPW,DY,PARR,NEM,BLBD,INCY,APP,CLS,NEXA,MU,CRDO,TIGO,KGC,GEV,CDE
-監視: NVDA,MSFT,CEG,AMD
-方針: 中期・中リスク。累積実現損失 約-¥350万からの回復を目指す
-"""
 
 # ─────────────────────────────────────────
-# ツール定義（SORAが使用）
+# ツール定義（STEVEが使用）
 # ─────────────────────────────────────────
 
 TOOLS = [
@@ -77,7 +56,7 @@ TOOLS = [
     {"name": "get_market_indices", "description": "主要指数（S&P500,NASDAQ,DOW,日経225）取得", "input_schema": {"type": "object", "properties": {}, "required": []}},
     {"name": "web_search", "description": "ウェブ検索で最新情報収集", "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}},
     {"name": "fetch_url_content", "description": "指定URLのテキスト取得", "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}},
-    {"name": "get_weather", "description": "指定都市の天気情報取得（city=Osaka, city=Kyoto など）", "input_schema": {"type": "object", "properties": {"city": {"type": "string", "default": "Osaka"}}, "required": []}},
+    {"name": "get_weather", "description": "指定都市の天気（city=Osaka, city=Kyoto など）", "input_schema": {"type": "object", "properties": {"city": {"type": "string", "default": "Osaka"}}, "required": []}},
     {"name": "get_weather_kansai", "description": "大阪（関西）の天気情報を取得", "input_schema": {"type": "object", "properties": {}, "required": []}},
     {"name": "get_keihan_status", "description": "京阪電車の運行情報を取得", "input_schema": {"type": "object", "properties": {}, "required": []}},
     {"name": "get_fear_greed_index", "description": "CNNのFear & Greed Index（市場心理指数）を取得", "input_schema": {"type": "object", "properties": {}, "required": []}},
@@ -93,23 +72,23 @@ TOOLS = [
 
 
 # ═══════════════════════════════════════════
-# SORA（ソラ）- 分析エージェント
-# 役割: データ収集・調査・分析の専門家
+# STEVE - 分析エージェント
+# Steve Jobs哲学でデータ収集・分析を行う
 # ═══════════════════════════════════════════
 
-def run_sora(task: str, conversation_history: list = None) -> str:
-    """SORA: ツールを使ってデータ収集・分析を実行する"""
+def run_steve(task: str, conversation_history: list = None) -> str:
+    """STEVE: ツールを使ってデータ収集・分析を実行する"""
     if conversation_history is None:
         conversation_history = []
 
-    sora_system = _load_agent_def("SORA")
+    steve_system = _load_agent_def("STEVE")
     messages = list(conversation_history) + [{"role": "user", "content": task}]
 
     for _ in range(15):
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4096,
-            system=sora_system,
+            system=steve_system,
             tools=TOOLS,
             messages=messages,
         )
@@ -130,16 +109,16 @@ def run_sora(task: str, conversation_history: list = None) -> str:
                     })
             messages.append({"role": "user", "content": tool_results})
 
-    return "⚠️ SORA: 分析タイムアウト"
+    return "⚠️ STEVE: 分析タイムアウト"
 
 
 # ═══════════════════════════════════════════
-# RIO（リオ）- デザインエージェント
-# 役割: 出力整形・読みやすさの専門家
+# JOHNNY - デザインエージェント
+# Jony Ive哲学で出力を整形する
 # ═══════════════════════════════════════════
 
 def run_johnny(raw_data: str, original_request: str) -> str:
-    """JOHNNY: SORAの生データをJony Ive哲学でTelegram向けに整形する"""
+    """JOHNNY: STEVEの生データをJony Ive哲学でTelegram向けに整形する"""
     johnny_system = _load_agent_def("JOHNNY")
     prompt = f"""以下のデータを、Telegram向けに整形してください。
 Jony Iveの設計哲学に従い、本質的にシンプルで、
@@ -148,7 +127,7 @@ Jony Iveの設計哲学に従い、本質的にシンプルで、
 【けんたの元のリクエスト】
 {original_request}
 
-【SORAが収集した生データ】
+【STEVEが収集した生データ】
 {raw_data}
 """
     response = client.messages.create(
@@ -161,22 +140,28 @@ Jony Iveの設計哲学に従い、本質的にシンプルで、
 
 
 # ═══════════════════════════════════════════
-# AOI（アオイ）- 秘書エージェント（窓口）
-# 役割: けんたとの窓口。SORA・RIOを統括する
+# 坂本 - 秘書エージェント（唯一の窓口）
+# 坂本龍馬哲学・高知弁でけんたと話す
+# すべての返答は坂本を通す
 # ═══════════════════════════════════════════
 
 def run_agent(user_message: str, conversation_history: list = None) -> str:
     """
-    AOI（秘書エージェント）- メインエントリーポイント
-    agents/AOI.md の定義に従って動作する
+    坂本（秘書エージェント）- メインエントリーポイント
+
+    フロー:
+    1. 坂本がけんたのリクエストを受け取り、STEVEへのタスクを定義
+    2. STEVEがデータ収集・分析を実行
+    3. JOHNNYが結果を整形
+    4. 坂本が最終返答をけんたに届ける
     """
     if conversation_history is None:
         conversation_history = []
 
-    aoi_system = _load_agent_def("AOI")
+    sakamoto_system = _load_agent_def("SAKAMOTO")
 
-    aoi_prompt = f"""けんたから以下のリクエストが届きました。
-SORAに渡す分析タスクを明確に定義してください。
+    # Step 1: 坂本がSTEVEへの指示を定義
+    step1_prompt = f"""けんたから以下のリクエストが届きました。
 
 【けんたのリクエスト】
 {user_message}
@@ -184,31 +169,58 @@ SORAに渡す分析タスクを明確に定義してください。
 【会話の文脈】
 {_format_history(conversation_history)}
 
-SORAへの指示:"""
+STEVEに渡す分析タスクを明確に定義してください。
+何を・どこまで調べるべきか、具体的に指示してください。
+（この指示はSTEVEへの内部指示です。けんたへの返答はまだしません）"""
 
-    aoi_response = client.messages.create(
+    step1_response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1024,
-        system=aoi_system,
-        messages=[{"role": "user", "content": aoi_prompt}],
+        system=sakamoto_system,
+        messages=[{"role": "user", "content": step1_prompt}],
     )
-    sora_task = "\n".join(
-        b.text for b in aoi_response.content if hasattr(b, "text")
+    steve_task = "\n".join(
+        b.text for b in step1_response.content if hasattr(b, "text")
     )
 
-    raw_data = run_sora(sora_task, conversation_history)
-    formatted = run_johnny(raw_data, user_message)
-    return formatted
+    # Step 2: STEVEが分析実行
+    raw_data = run_steve(steve_task, conversation_history)
+
+    # Step 3: JOHNNYが整形
+    formatted_data = run_johnny(raw_data, user_message)
+
+    # Step 4: 坂本がけんたへの最終返答を生成（高知弁で）
+    step4_prompt = f"""けんたへの返答を作成してください。
+
+【けんたのリクエスト】
+{user_message}
+
+【STEVEとJOHNNYが作成したレポート】
+{formatted_data}
+
+このレポートをそのままけんたに渡してください。
+冒頭に坂本らしい一言（高知弁で、短く、前向きに）を添えてください。
+例：「ほんまに、ええ動きしちゅうぜよ！」「任せちょきや、調べてきたき！」
+レポートは改変せず、そのまま出力してください。"""
+
+    step4_response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=4096,
+        system=sakamoto_system,
+        messages=[{"role": "user", "content": step4_prompt}],
+    )
+    return "\n".join(
+        b.text for b in step4_response.content if hasattr(b, "text")
+    )
 
 
 def _format_history(history: list) -> str:
-    """会話履歴を文字列に変換"""
     if not history:
         return "（なし）"
-    recent = history[-4:]  # 直近2往復
+    recent = history[-4:]
     lines = []
     for msg in recent:
-        role = "けんた" if msg["role"] == "user" else "AOI"
+        role = "けんた" if msg["role"] == "user" else "坂本"
         content = msg["content"] if isinstance(msg["content"], str) else "[データ]"
         lines.append(f"{role}: {content[:100]}")
     return "\n".join(lines)
