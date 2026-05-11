@@ -1,6 +1,5 @@
 # ============================================================
 # Kenta Agent CI/CD パイプライン
-# push・PRのたびに自動実行
 # ============================================================
 
 name: Security & Quality Check
@@ -13,11 +12,10 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   # ─────────────────────────────────────────
-  # Job 1: シークレット漏洩検出
+  # Job 1: シークレット検出
   # ─────────────────────────────────────────
   secret-scan:
     name: 🔐 シークレット検出
@@ -27,15 +25,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Python セットアップ
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: detect-secrets（ベースライン比較）
+      - name: detect-secrets ベースライン比較
         run: |
           pip install detect-secrets -q
-          # 新規シークレットのみ検出（過去コミットは.secrets.baselineで管理）
           detect-secrets scan \
             --baseline .secrets.baseline \
             --exclude-files '.*\.lock$' \
@@ -44,13 +40,12 @@ jobs:
             --exclude-files '.*\.toml$'
           echo "✅ 新規シークレット検出なし"
 
-      - name: APIキー直書きチェック（現在のコードのみ）
+      - name: APIキー直書きチェック
         run: |
-          # .github/workflowsは除外（パターン文字列自体が引っかかるため）
           FOUND=$(grep -rn \
             "AIzaSy[A-Za-z0-9_-]\{10,\}\|sk-ant-api[A-Za-z0-9_-]\|GOCSPX-[A-Za-z0-9_-]\|ghp_[A-Za-z0-9]\{36,\}" \
-            --include="*.py" \
-            . | grep -v "\.git" | grep -v "#" || true)
+            --include="*.py" . \
+            | grep -v "\.git" | grep -v "^\s*#" || true)
           if [ -n "$FOUND" ]; then
             echo "❌ APIキーが検出されました:"
             echo "$FOUND"
@@ -59,7 +54,7 @@ jobs:
           echo "✅ ハードコードなし"
 
   # ─────────────────────────────────────────
-  # Job 2: セキュリティ脆弱性スキャン
+  # Job 2: セキュリティスキャン
   # ─────────────────────────────────────────
   security-scan:
     name: 🛡️ セキュリティスキャン
@@ -67,19 +62,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Python セットアップ
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: pip-audit（依存ライブラリ脆弱性）
+        run: |
+          pip install pip-audit -q
+          pip-audit -r requirements.txt \
+            --ignore-vuln GHSA-34jh-p97f-mpxf \
+            --ignore-vuln PYSEC-2023-57 \
+            || echo "⚠️ 脆弱性が見つかりました（確認してください）"
 
       - name: Bandit（Pythonコードセキュリティ）
         run: |
           pip install bandit -q
-          bandit -r . \
-            --exclude ./.git,./docs,./agents,./.github \
-            --skip B101,B603,B607,B320 \
-            -ll --format txt 2>&1 || true
-          
           HIGH=$(bandit -r . \
             --exclude ./.git,./docs,./agents,./.github \
             --skip B101,B603,B607,B320 \
@@ -89,22 +86,16 @@ jobs:
           d=json.load(sys.stdin)
           h=[r for r in d.get('results',[]) if r.get('issue_severity')=='HIGH']
           print(len(h))
-          " 2>/dev/null || echo "0")
-          
+          " || echo "0")
           if [ "$HIGH" -gt "0" ]; then
             echo "❌ 高深刻度の問題: ${HIGH}件"
+            bandit -r . --exclude ./.git,./docs,./agents,./.github --skip B101,B603,B607,B320 -ll
             exit 1
           fi
           echo "✅ High深刻度の問題なし"
 
-      - name: Safety（依存ライブラリ脆弱性）
-        run: |
-          pip install safety -q
-          safety check -r requirements.txt --ignore 70612 2>&1 \
-            || echo "⚠️ 脆弱性が見つかりました（確認してください）"
-
   # ─────────────────────────────────────────
-  # Job 3: コード品質チェック
+  # Job 3: コード品質
   # ─────────────────────────────────────────
   code-quality:
     name: 📋 コード品質
@@ -112,8 +103,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Python セットアップ
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -121,9 +111,7 @@ jobs:
         run: |
           FAILED=0
           for f in main.py agent.py tools.py storage.py scheduler.py output.py config.py web_server.py; do
-            if [ -f "$f" ]; then
-              python3 -c "import ast; ast.parse(open('$f').read()); print('✅ $f')" || FAILED=1
-            fi
+            [ -f "$f" ] && python3 -c "import ast; ast.parse(open('$f').read()); print('✅ $f')" || FAILED=1
           done
           [ "$FAILED" -eq "0" ] || exit 1
 
@@ -138,7 +126,7 @@ jobs:
 
       - name: ツール整合性チェック
         run: |
-          python3 << 'PYEOF'
+          python3 - << 'PYEOF'
           import re, sys
           with open("agent.py") as f:
               agent_tools = set(re.findall(r'"name":\s*"([^"]+)"', f.read()))
@@ -155,7 +143,7 @@ jobs:
 
       - name: Web認証チェック
         run: |
-          python3 << 'PYEOF'
+          python3 - << 'PYEOF'
           import re, sys
           src = open("web_server.py").read()
           pat = re.compile(
@@ -181,7 +169,7 @@ jobs:
       - name: デフォルトパスワードチェック
         run: |
           FOUND=$(grep -rn \
-            'os\.getenv.*"[A-Za-z0-9@#$%!_]{20,}"' \
+            'os\.getenv.*"[A-Za-z0-9@#$%!_]\{20,\}"' \
             --include="*.py" . | grep -v "\.git" || true)
           if [ -n "$FOUND" ]; then
             echo "❌ デフォルト値に機密情報の疑い:"
@@ -204,7 +192,8 @@ jobs:
 
       - name: bare exceptチェック
         run: |
-          FOUND=$(grep -rn '^\s*except:\s*$' --include="*.py" . || true)
+          FOUND=$(grep -rn '^\s*except:\s*$' --include="*.py" . \
+            | grep -v "\.git" || true)
           if [ -n "$FOUND" ]; then
             echo "❌ bare exceptが存在します:"
             echo "$FOUND"

@@ -149,3 +149,17 @@ PYEOF
 **問題**: カレンダー取得で `invalid_scope` エラーが発生した
 **原因**: `get_calendar_events` が `calendar.readonly` スコープで認証していたが、新しいトークンは `calendar`（フル）スコープで発行されていた
 **対策**: Google系ツールはすべて `_get_google_creds()` を使いスコープを統一する。新しいOAuthトークン取得後は全Googleツールの動作確認を行う（チェック④）
+
+### [2026-05-11] CI/CD - GitHub Actions 複数回失敗
+**問題**: Security & Quality Check が繰り返し失敗した
+**原因**:
+1. `safety check` コマンドがv3で廃止→APIキー必須になった
+2. Gitleaksが過去コミット（commit 478b201, 4716672）のAPIキーを検出した
+3. `detect-secrets` のJSONパース方法が不安定だった
+4. `heredoc (<<'PYEOF')` がYAML内でエスケープ問題を起こした
+**対策**:
+- `safety` → `pip-audit` に変更（無料・APIキー不要）
+- Gitleaksを除外し `detect-secrets` のベースライン比較に一本化
+- heredocの代わりに `python3 - << 'PYEOF'` 形式を使う
+- CIを変更したら必ずローカルで各ステップを個別実行してからpushする
+- **Safetyはv3以降APIキーが必要なため使用禁止。pip-auditを使うこと**
