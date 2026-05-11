@@ -86,7 +86,7 @@ async def collect_morning_data(bot, chat_id: int):
     import asyncio
     try:
         logger.info("朝データ収集開始（5:30バッチ）")
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         raw_data = await loop.run_in_executor(
             None, lambda: run_steve(_data_collection_prompt())
         )
@@ -100,7 +100,7 @@ async def collect_morning_data(bot, chat_id: int):
             logger.info("✅ 生データをメモリに保存（Redisなし）")
 
     except Exception as e:
-        logger.error(f"朝データ収集エラー: {e}")
+        logger.error(f"朝データ収集エラー: {e}", exc_info=True)
 
 
 async def send_morning_report(bot, chat_id: int):
@@ -120,13 +120,13 @@ async def send_morning_report(bot, chat_id: int):
             # 生データがなければその場で収集（フォールバック）
             logger.warning("生データなし → その場でデータ収集")
             await bot.send_message(chat_id=chat_id, text="📊 朝レポートを作成中...")
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             raw_data = await loop.run_in_executor(
                 None, lambda: run_steve(_data_collection_prompt())
             )
 
         # JOHNNYが整形（executor経由）
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         report = await loop.run_in_executor(
             None, lambda: run_johnny(raw_data, _design_prompt(raw_data))
         )
