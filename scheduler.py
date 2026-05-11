@@ -35,16 +35,18 @@ get_keihan_status で京阪電車の運行情報を取得
 === STEP 4: 市場心理 ===
 get_fear_greed_index でFear & Greed Indexを取得
 
-=== STEP 5: タスク ===
-get_tasks で未完了タスク一覧を取得
+=== STEP 5: Google Tasks（優先TODO） ===
+get_google_tasks tasklist_title=Inbox で受信箱タスクを取得
+get_google_tasks tasklist_title=定期 で定期タスクを取得
+→ 期限が近いもの・重要そうなものを最大5件ピックアップして表示
 
-=== STEP 6: YouTube新着 ===
-get_youtube_new_videos hours=48 で新着動画を取得
-動画がない場合は「📭 過去48時間の新着動画はありませんでした」と表示
-
-=== STEP 7: カレンダー ===
+=== STEP 6: Google Calendar ===
 get_calendar_events で今日〜3日分の予定を取得
 日付は「5/14（水）13:30〜」のように具体的な日付と曜日で表示。「明日」などの相対表現禁止
+
+=== STEP 7: YouTube新着 ===
+get_youtube_new_videos hours=48 で新着動画を取得
+動画がない場合は「📭 過去48時間の新着動画はありませんでした」と表示
 
 === 出力フォーマット ===
 🌅 朝のレポート [日付]
@@ -60,11 +62,11 @@ get_calendar_events で今日〜3日分の予定を取得
 京都：（天気・最高/最低気温）
 🚃 京阪電車：（運行状況）
 ---
-📋 タスク（なければ「なし」）
+✅ 今日のTODO（Googleタスクから期限・重要度でピックアップ最大5件）
 ---
-📺 YouTube新着（なければ「📭 過去48時間の新着動画はありませんでした」）
+📅 今日の予定（カレンダー3日分、なければ「なし」）
 ---
-📅 今日の予定（なければ「なし」）"""
+📺 YouTube新着（なければ「📭 過去48時間の新着動画はありませんでした」）"""
 
 
 def _evening_report_prompt() -> str:
