@@ -168,9 +168,9 @@ jobs:
 
       - name: デフォルトパスワードチェック
         run: |
-          FOUND=$(grep -rn \
-            'os\.getenv.*"[A-Za-z0-9@#$%!_]\{20,\}"' \
-            --include="*.py" . | grep -v "\.git" || true)
+          # getenv("KEY", "デフォルト値") のデフォルト値が長い文字列でないかチェック
+          # 変数名が長い場合の誤検知を防ぐため、第2引数のデフォルト値のみ対象
+          FOUND=$(grep -rn             'getenv([^,]*, *"[A-Za-z0-9@#$%!_+/]\{16,\}")'             --include="*.py" . | grep -v "\.git" || true)
           if [ -n "$FOUND" ]; then
             echo "❌ デフォルト値に機密情報の疑い:"
             echo "$FOUND"
