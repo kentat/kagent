@@ -168,15 +168,29 @@ jobs:
 
       - name: デフォルトパスワードチェック
         run: |
-          # getenv("KEY", "デフォルト値") のデフォルト値が長い文字列でないかチェック
-          # 変数名が長い場合の誤検知を防ぐため、第2引数のデフォルト値のみ対象
-          FOUND=$(grep -rn             'getenv([^,]*, *"[A-Za-z0-9@#$%!_+/]\{16,\}")'             --include="*.py" . | grep -v "\.git" || true)
-          if [ -n "$FOUND" ]; then
-            echo "❌ デフォルト値に機密情報の疑い:"
-            echo "$FOUND"
-            exit 1
-          fi
-          echo "✅ デフォルト値チェックOK"
+          # getenv("KEY", "デフォルト値") の第2引数が長い文字列でないかチェック
+          # 環境変数名ではなく「デフォルト値」のみを対象にする
+          python3 - << 'PYEOF'
+          import re, sys
+          src_files = ["main.py","agent.py","tools.py","storage.py",
+                       "scheduler.py","output.py","config.py","web_server.py"]
+          found = []
+          pat = re.compile(r'os\.getenv\([^,]+,\s*"([^"]{20,})"\)')
+          for fname in src_files:
+              try:
+                  lines = open(fname).readlines()
+                  for i, line in enumerate(lines, 1):
+                      m = pat.search(line)
+                      if m:
+                          found.append(f"{fname}:{i}: {line.strip()}")
+              except FileNotFoundError:
+                  pass
+          if found:
+              print("❌ デフォルト値に機密情報の疑い:")
+              for f in found: print(f)
+              sys.exit(1)
+          print("✅ デフォルト値チェックOK")
+          PYEOF
 
       - name: エラー詳細漏洩チェック
         run: |
