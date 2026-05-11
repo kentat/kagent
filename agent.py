@@ -138,10 +138,12 @@ def run_sora(task: str, conversation_history: list = None) -> str:
 # 役割: 出力整形・読みやすさの専門家
 # ═══════════════════════════════════════════
 
-def run_rio(raw_data: str, original_request: str) -> str:
-    """RIO: SORAの生データをTelegram向けに整形する"""
-    rio_system = _load_agent_def("RIO")
-    prompt = f"""以下のデータを、Telegram向けに読みやすく整形してください。
+def run_johnny(raw_data: str, original_request: str) -> str:
+    """JOHNNY: SORAの生データをJony Ive哲学でTelegram向けに整形する"""
+    johnny_system = _load_agent_def("JOHNNY")
+    prompt = f"""以下のデータを、Telegram向けに整形してください。
+Jony Iveの設計哲学に従い、本質的にシンプルで、
+読み手への深い共感を持った出力にしてください。
 
 【けんたの元のリクエスト】
 {original_request}
@@ -152,7 +154,7 @@ def run_rio(raw_data: str, original_request: str) -> str:
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=4096,
-        system=rio_system,
+        system=johnny_system,
         messages=[{"role": "user", "content": prompt}],
     )
     return "\n".join(b.text for b in response.content if hasattr(b, "text"))
@@ -195,7 +197,7 @@ SORAへの指示:"""
     )
 
     raw_data = run_sora(sora_task, conversation_history)
-    formatted = run_rio(raw_data, user_message)
+    formatted = run_johnny(raw_data, user_message)
     return formatted
 
 
