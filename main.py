@@ -97,7 +97,7 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     chat_id = update.effective_chat.id
     await update.message.reply_text("📋 日報を生成中...")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         from agent import generate_daily_report
         report = await loop.run_in_executor(None, generate_daily_report)
@@ -111,7 +111,7 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await update.message.reply_text("📊 朝レポートを生成中...（1〜2分かかります）")
     from scheduler import _morning_report_prompt
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         report = await loop.run_in_executor(None, lambda: run_agent(_morning_report_prompt()))
         await safe_send(context.bot, chat_id, report)
@@ -126,7 +126,7 @@ async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     chat_id = update.effective_chat.id
     await update.message.reply_text("📈 ポートフォリオ確認中...（しばらくお待ちください）")
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     response = await loop.run_in_executor(
         None, lambda: run_agent("保有銘柄全銘柄の含み損益・前日比を円換算で一覧表示してください")
     )
@@ -138,7 +138,7 @@ async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     response = await loop.run_in_executor(
         None, lambda: run_agent("未完了のタスク一覧を表示してください")
     )
@@ -150,7 +150,7 @@ async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     response = await loop.run_in_executor(
         None, lambda: run_agent("最近保存したメモを10件表示してください")
     )
@@ -205,7 +205,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     history = get_conversation(user_id)
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
             None, lambda: run_agent(user_message, history)
         )
