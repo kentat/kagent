@@ -96,7 +96,7 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    await update.message.reply_text("📋 日報を生成中...")
+    await update.message.reply_text("📋 日報を生成中です...少しお待ちください🙏")
     loop = asyncio.get_running_loop()
     try:
         from agent import generate_daily_report
@@ -105,11 +105,14 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"日報エラー: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text=f"⚠️ 日報生成エラー: {str(e)}")
+
+
+async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """朝レポートを即時実行"""
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    await update.message.reply_text("📊 朝レポートを生成中...（1〜2分かかります）")
+    await update.message.reply_text("🌅 朝レポートを生成中です...1〜2分かかります🙏")
     from scheduler import _morning_report_prompt
     loop = asyncio.get_running_loop()
     try:
@@ -125,12 +128,16 @@ async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    await update.message.reply_text("📈 ポートフォリオ確認中...（しばらくお待ちください）")
+    await update.message.reply_text("📈 ポートフォリオを確認中です...少しお待ちください🙏")
     loop = asyncio.get_running_loop()
-    response = await loop.run_in_executor(
-        None, lambda: run_agent("保有銘柄全銘柄の含み損益・前日比を円換算で一覧表示してください")
-    )
-    await safe_send(context.bot, chat_id, response)
+    try:
+        response = await loop.run_in_executor(
+            None, lambda: run_agent("保有銘柄全銘柄の含み損益・前日比を円換算で一覧表示してください")
+        )
+        await safe_send(context.bot, chat_id, response)
+    except Exception as e:
+        logger.error(f"ポートフォリオエラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ エラー: {str(e)}")
 
 
 async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,11 +145,16 @@ async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
+    await update.message.reply_text("📋 タスクを取得中です...🙏")
     loop = asyncio.get_running_loop()
-    response = await loop.run_in_executor(
-        None, lambda: run_agent("未完了のタスク一覧を表示してください")
-    )
-    await safe_send(context.bot, chat_id, response)
+    try:
+        response = await loop.run_in_executor(
+            None, lambda: run_agent("未完了のタスク一覧を表示してください")
+        )
+        await safe_send(context.bot, chat_id, response)
+    except Exception as e:
+        logger.error(f"タスクエラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ エラー: {str(e)}")
 
 
 async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -150,11 +162,16 @@ async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
+    await update.message.reply_text("📝 メモを取得中です...🙏")
     loop = asyncio.get_running_loop()
-    response = await loop.run_in_executor(
-        None, lambda: run_agent("最近保存したメモを10件表示してください")
-    )
-    await safe_send(context.bot, chat_id, response)
+    try:
+        response = await loop.run_in_executor(
+            None, lambda: run_agent("最近保存したメモを10件表示してください")
+        )
+        await safe_send(context.bot, chat_id, response)
+    except Exception as e:
+        logger.error(f"メモエラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ エラー: {str(e)}")
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -198,10 +215,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     chat_id = update.effective_chat.id
 
-    # タイピング表示
+    # 即時受信確認メッセージ（ユーザーが生死確認できるように）
+    await update.message.reply_text("🏯 坂本が受け取ったき！STEVEとJOHNNYに確認させちゅう...少し待っちょれや🙏")
     await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
-    # 会話履歴取得（storage.py経由）
     history = get_conversation(user_id)
 
     try:
@@ -210,7 +227,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             None, lambda: run_agent(user_message, history)
         )
 
-        # 履歴更新（storage.py経由）
         set_conversation(user_id, history + [
             {"role": "user", "content": user_message},
             {"role": "assistant", "content": response},
