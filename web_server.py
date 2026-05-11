@@ -2,19 +2,20 @@
 Webサーバー - モーニングブリーフのHTML表示
 ============================================
 エンドポイント:
-  GET /          → 最新モーニングブリーフ
-  GET /evening   → 最新夕方ニュース
-  GET /report    → 最新日報
-  GET /health    → ヘルスチェック（認証不要）
+  GET /          → 最新モーニングブリーフ（Basic認証必須）
+  GET /evening   → 最新夕方ニュース（Basic認証必須）
+  GET /report    → 最新日報（Basic認証必須）
+  GET /health    → ヘルスチェック（Basic認証必須）
 
-Basic認証:
+認証:
   環境変数 WEB_USERNAME / WEB_PASSWORD で設定
-  デフォルト: kenta / kenta2026
+  デフォルトなし（未設定の場合は起動エラー）
 ============================================
 """
 
 import os
 import secrets
+import sys
 from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
@@ -25,8 +26,13 @@ from storage import get_report_cache
 app = FastAPI(title="Kenta Agent Dashboard", docs_url=None, redoc_url=None)
 security = HTTPBasic()
 
-WEB_USERNAME = os.getenv("WEB_USERNAME", "kenta")
-WEB_PASSWORD = os.getenv("WEB_PASSWORD", "kenta2026")
+WEB_USERNAME = os.getenv("WEB_USERNAME", "")
+WEB_PASSWORD = os.getenv("WEB_PASSWORD", "")
+
+# 起動時に認証情報が設定されていなければエラー
+if not WEB_USERNAME or not WEB_PASSWORD:
+    print("ERROR: WEB_USERNAME / WEB_PASSWORD が設定されていません", file=sys.stderr)
+    sys.exit(1)
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
@@ -239,8 +245,9 @@ def _get_page(report_type: str) -> HTMLResponse:
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok", "service": "kenta-agent"}
+def health(username: str = Depends(verify_credentials)):
+    """ヘルスチェック（認証必須）"""
+    return {"status": "ok"}
 
 
 @app.get("/", response_class=HTMLResponse)

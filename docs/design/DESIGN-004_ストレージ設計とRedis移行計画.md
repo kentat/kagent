@@ -73,7 +73,7 @@ set_channel_id(handle: str, channel_id: str) -> None
 
 ```
 # 会話履歴
-KEY: conversation:8609780798
+KEY: conversation:{user_id}
 TYPE: String (JSON)
 TTL: 86400秒（24時間）
 VALUE: [{"role":"user","content":"..."}, ...]

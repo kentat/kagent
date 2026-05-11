@@ -104,7 +104,7 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await deliver(context.bot, chat_id, report, OutputChannel.TELEGRAM)
     except Exception as e:
         logger.error(f"日報エラー: {e}", exc_info=True)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ 日報生成エラー: {str(e)}")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ 日報の生成中にエラーが発生しました")
 
 
 async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,7 +122,7 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await safe_send(context.bot, chat_id, report)
     except Exception as e:
         logger.error(f"朝レポートエラー: {e}", exc_info=True)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ レポート生成エラー: {str(e)}")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ レポートの生成中にエラーが発生しました")
 
 
 async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -139,7 +139,7 @@ async def cmd_portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await safe_send(context.bot, chat_id, response)
     except Exception as e:
         logger.error(f"ポートフォリオエラー: {e}", exc_info=True)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ エラー: {str(e)}")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ エラーが発生しました。しばらく待ってから再試行してください")
 
 
 async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -156,7 +156,7 @@ async def cmd_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await safe_send(context.bot, chat_id, response)
     except Exception as e:
         logger.error(f"タスクエラー: {e}", exc_info=True)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ エラー: {str(e)}")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ エラーが発生しました。しばらく待ってから再試行してください")
 
 
 async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -173,7 +173,7 @@ async def cmd_notes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await safe_send(context.bot, chat_id, response)
     except Exception as e:
         logger.error(f"メモエラー: {e}", exc_info=True)
-        await context.bot.send_message(chat_id=chat_id, text=f"⚠️ エラー: {str(e)}")
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ エラーが発生しました。しばらく待ってから再試行してください")
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
