@@ -114,9 +114,11 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await update.message.reply_text("🌅 朝レポートを生成中です...1〜2分かかります🙏")
     from scheduler import _morning_report_prompt
+    from storage import save_report_cache
     loop = asyncio.get_running_loop()
     try:
         report = await loop.run_in_executor(None, lambda: run_agent(_morning_report_prompt()))
+        save_report_cache("morning", report)
         await safe_send(context.bot, chat_id, report)
     except Exception as e:
         logger.error(f"朝レポートエラー: {e}", exc_info=True)

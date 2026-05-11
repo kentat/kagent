@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from agent import run_agent, generate_daily_report
 from output import deliver, OutputChannel
+from storage import save_report_cache
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
@@ -118,6 +119,7 @@ async def send_morning_report(bot, chat_id: int):
         logger.info("朝レポート生成開始")
         await bot.send_message(chat_id=chat_id, text="📊 朝の市況レポートを作成中...")
         report = run_agent(_morning_report_prompt())
+        save_report_cache("morning", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("朝レポート送信完了")
     except Exception as e:
@@ -130,6 +132,7 @@ async def send_daily_report(bot, chat_id: int):
     try:
         logger.info("日報生成開始")
         report = generate_daily_report()
+        save_report_cache("daily", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("日報送信完了")
     except Exception as e:
@@ -141,6 +144,7 @@ async def send_evening_report(bot, chat_id: int):
     try:
         logger.info("夕方レポート生成開始")
         report = run_agent(_evening_report_prompt())
+        save_report_cache("evening", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("夕方レポート送信完了")
     except Exception as e:

@@ -641,3 +641,63 @@ def get_comm_logs(date: str = None, limit: int = 30) -> list:
         {"from": r[0], "to": r[1], "type": r[2], "content": r[3], "time": r[4]}
         for r in rows
     ]
+
+
+# ─────────────────────────────────────────
+# 最新レポートのキャッシュ
+# Webサーバーからアクセスするために保存
+# 現在: SQLite
+# 将来: Redis String（TTL付き）
+# ─────────────────────────────────────────
+
+def _init_report_cache():
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS report_cache (
+        report_type TEXT PRIMARY KEY,
+        content TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""")
+    conn.commit()
+    conn.close()
+
+
+def save_report_cache(report_type: str, content: str) -> None:
+    """
+    レポートをキャッシュに保存する
+    report_type: 'morning' / 'evening' / 'daily'
+
+    Redis移行時:
+        redis_client.setex(f"report:{report_type}", 86400, content)
+    """
+    _init_report_cache()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "INSERT OR REPLACE INTO report_cache (report_type, content, updated_at) VALUES (?, ?, ?)",
+        (report_type, content, datetime.now().isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_report_cache(report_type: str) -> dict:
+    """
+    キャッシュからレポートを取得する
+
+    Redis移行時:
+        return redis_client.get(f"report:{report_type}")
+    """
+    _init_report_cache()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "SELECT content, updated_at FROM report_cache WHERE report_type=?",
+        (report_type,),
+    )
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {"content": row[0], "updated_at": row[1]}
+    return {}
