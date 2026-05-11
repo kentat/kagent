@@ -276,3 +276,165 @@ def set_channel_id(handle: str, channel_id: str) -> None:
     )
     conn.commit()
     conn.close()
+
+
+# ─────────────────────────────────────────
+# エージェント作業ログ
+# 現在: SQLite
+# 将来: Redis Sorted Set（日付スコア付き）
+#
+# 目的:
+#   ① 各エージェントが作業内容・思考プロセスを記録
+#   ② 坂本が日報としてまとめてけんたに報告
+#   ③ 次回起動時に読み返し、ナレッジを継承する
+# ─────────────────────────────────────────
+
+def _init_agent_logs():
+    """エージェントログテーブルを初期化"""
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS agent_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agent_name TEXT NOT NULL,
+        session_date TEXT NOT NULL,
+        task TEXT NOT NULL,
+        result_summary TEXT,
+        issues TEXT,
+        thinking_process TEXT,
+        created_at TEXT NOT NULL
+    )""")
+    conn.commit()
+    conn.close()
+
+
+def write_agent_log(
+    agent_name: str,
+    task: str,
+    result_summary: str = "",
+    issues: str = "",
+    thinking_process: str = "",
+) -> None:
+    """
+    エージェントの作業ログを記録する
+
+    Redis移行時:
+        redis_client.zadd(f"logs:{agent_name}",
+            {json.dumps(log): datetime.now().timestamp()})
+    """
+    _init_agent_logs()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    now = datetime.now()
+    c.execute(
+        """INSERT INTO agent_logs
+           (agent_name, session_date, task, result_summary, issues, thinking_process, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (
+            agent_name,
+            now.strftime("%Y-%m-%d"),
+            task[:500],
+            result_summary[:1000],
+            issues[:500],
+            thinking_process[:1000],
+            now.isoformat(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_agent_logs(date: str = None, agent_name: str = None, limit: int = 20) -> list:
+    """
+    エージェントログを取得する
+
+    Args:
+        date: "YYYY-MM-DD" 形式。Noneなら今日
+        agent_name: エージェント名でフィルタ。Noneなら全員
+        limit: 取得件数
+
+    Redis移行時:
+        logs = redis_client.zrevrangebyscore(f"logs:{agent_name}",
+            end_score, start_score, start=0, num=limit)
+    """
+    _init_agent_logs()
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    if agent_name:
+        c.execute(
+            """SELECT agent_name, task, result_summary, issues, thinking_process, created_at
+               FROM agent_logs WHERE session_date=? AND agent_name=?
+               ORDER BY created_at DESC LIMIT ?""",
+            (date, agent_name, limit),
+        )
+    else:
+        c.execute(
+            """SELECT agent_name, task, result_summary, issues, thinking_process, created_at
+               FROM agent_logs WHERE session_date=?
+               ORDER BY created_at DESC LIMIT ?""",
+            (date, limit),
+        )
+    rows = c.fetchall()
+    conn.close()
+
+    return [
+        {
+            "agent": r[0],
+            "task": r[1],
+            "result": r[2],
+            "issues": r[3],
+            "thinking": r[4],
+            "time": r[5],
+        }
+        for r in rows
+    ]
+
+
+def get_recent_knowledge(agent_name: str = None, days: int = 7) -> list:
+    """
+    直近N日分のログを取得してナレッジとして返す
+    → エージェントが次回起動時に読み返すために使用
+
+    Redis移行時:
+        redis_client.zrevrangebyscore(f"logs:{agent_name}",
+            now_score, week_ago_score, start=0, num=50)
+    """
+    _init_agent_logs()
+    from datetime import timedelta
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    if agent_name:
+        c.execute(
+            """SELECT agent_name, task, result_summary, issues, thinking_process, session_date
+               FROM agent_logs WHERE session_date >= ? AND agent_name=?
+               ORDER BY created_at DESC LIMIT 30""",
+            (cutoff, agent_name),
+        )
+    else:
+        c.execute(
+            """SELECT agent_name, task, result_summary, issues, thinking_process, session_date
+               FROM agent_logs WHERE session_date >= ?
+               ORDER BY created_at DESC LIMIT 50""",
+            (cutoff,),
+        )
+    rows = c.fetchall()
+    conn.close()
+
+    return [
+        {
+            "agent": r[0],
+            "task": r[1],
+            "result": r[2],
+            "issues": r[3],
+            "thinking": r[4],
+            "date": r[5],
+        }
+        for r in rows
+    ]

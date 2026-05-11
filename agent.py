@@ -9,6 +9,7 @@ Kenta Agent Company - 3エージェント構成
 import os
 import anthropic
 from tools import execute_tool
+from storage import write_agent_log, get_recent_knowledge
 
 client = anthropic.Anthropic()
 
@@ -19,6 +20,10 @@ client = anthropic.Anthropic()
 # ─────────────────────────────────────────
 
 def _load_agent_def(name: str) -> str:
+    """
+    agents/{name}.md + COMPANY.md + LESSONS.md + 直近ナレッジを結合して
+    システムプロンプトとして返す。
+    """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     agents_dir = os.path.join(base_dir, "agents")
 
@@ -29,15 +34,32 @@ def _load_agent_def(name: str) -> str:
         except FileNotFoundError:
             return ""
 
-    company = read_md("COMPANY.md")
-    lessons = read_md("LESSONS.md")
-    agent_def = read_md(f"{name}.md")
+    company    = read_md("COMPANY.md")
+    lessons    = read_md("LESSONS.md")
+    agent_def  = read_md(f"{name}.md")
+
+    # 直近7日分のナレッジを読み込む
+    recent_logs = get_recent_knowledge(agent_name=name, days=7)
+    knowledge_text = ""
+    if recent_logs:
+        lines = [f"# 直近の作業ナレッジ（{name}）"]
+        for log in recent_logs[:10]:  # 最大10件
+            lines.append(f"\n### {log['date']} - {log['task'][:60]}")
+            if log['result']:
+                lines.append(f"**結果**: {log['result'][:200]}")
+            if log['issues']:
+                lines.append(f"**課題**: {log['issues'][:200]}")
+            if log['thinking']:
+                lines.append(f"**思考**: {log['thinking'][:200]}")
+        knowledge_text = "\n".join(lines)
 
     parts = []
     if company:
         parts.append(f"# 会社全体のルール\n{company}")
     if lessons:
         parts.append(f"# 学習記録（過去のミスと対策）\n{lessons}")
+    if knowledge_text:
+        parts.append(knowledge_text)
     if agent_def:
         parts.append(f"# あなたの職務定義\n{agent_def}")
 
@@ -95,7 +117,10 @@ def run_steve(task: str, conversation_history: list = None) -> str:
         messages.append({"role": "assistant", "content": response.content})
 
         if response.stop_reason == "end_turn":
-            return "\n".join(b.text for b in response.content if hasattr(b, "text"))
+            result = "\n".join(b.text for b in response.content if hasattr(b, "text"))
+            # ログを記録
+            _log_steve_work(task, result, messages)
+            return result
 
         if response.stop_reason == "tool_use":
             tool_results = []
@@ -109,7 +134,34 @@ def run_steve(task: str, conversation_history: list = None) -> str:
                     })
             messages.append({"role": "user", "content": tool_results})
 
+    write_agent_log("STEVE", task, issues="タイムアウト発生")
     return "⚠️ STEVE: 分析タイムアウト"
+
+
+def _log_steve_work(task: str, result: str, messages: list) -> None:
+    """STEVEの作業をログに記録する"""
+    # 使用したツールを抽出
+    tools_used = []
+    for msg in messages:
+        if isinstance(msg.get("content"), list):
+            for block in msg["content"]:
+                if hasattr(block, "type") and block.type == "tool_use":
+                    tools_used.append(block.name)
+
+    # エラー・課題を抽出
+    issues = ""
+    if "エラー" in result or "error" in result.lower():
+        issues = "ツールエラーが発生した"
+
+    thinking = f"使用ツール: {', '.join(set(tools_used))}" if tools_used else ""
+
+    write_agent_log(
+        agent_name="STEVE",
+        task=task[:300],
+        result_summary=result[:500],
+        issues=issues,
+        thinking_process=thinking,
+    )
 
 
 # ═══════════════════════════════════════════
@@ -136,7 +188,16 @@ Jony Iveの設計哲学に従い、本質的にシンプルで、
         system=johnny_system,
         messages=[{"role": "user", "content": prompt}],
     )
-    return "\n".join(b.text for b in response.content if hasattr(b, "text"))
+    result = "\n".join(b.text for b in response.content if hasattr(b, "text"))
+
+    # ログを記録
+    write_agent_log(
+        agent_name="JOHNNY",
+        task=f"整形: {original_request[:200]}",
+        result_summary=f"出力文字数: {len(result)}文字",
+        thinking_process="Jony Ive哲学（本質的シンプルさ）に従い整形",
+    )
+    return result
 
 
 # ═══════════════════════════════════════════
@@ -151,9 +212,9 @@ def run_agent(user_message: str, conversation_history: list = None) -> str:
 
     フロー:
     1. 坂本がけんたのリクエストを受け取り、STEVEへのタスクを定義
-    2. STEVEがデータ収集・分析を実行
-    3. JOHNNYが結果を整形
-    4. 坂本が最終返答をけんたに届ける
+    2. STEVEがデータ収集・分析を実行（ログ記録）
+    3. JOHNNYが結果を整形（ログ記録）
+    4. 坂本が最終返答をけんたに届ける（ログ記録）
     """
     if conversation_history is None:
         conversation_history = []
@@ -183,10 +244,10 @@ STEVEに渡す分析タスクを明確に定義してください。
         b.text for b in step1_response.content if hasattr(b, "text")
     )
 
-    # Step 2: STEVEが分析実行
+    # Step 2: STEVEが分析実行（内部でログ記録）
     raw_data = run_steve(steve_task, conversation_history)
 
-    # Step 3: JOHNNYが整形
+    # Step 3: JOHNNYが整形（内部でログ記録）
     formatted_data = run_johnny(raw_data, user_message)
 
     # Step 4: 坂本がけんたへの最終返答を生成（高知弁で）
@@ -209,9 +270,77 @@ STEVEに渡す分析タスクを明確に定義してください。
         system=sakamoto_system,
         messages=[{"role": "user", "content": step4_prompt}],
     )
-    return "\n".join(
+    final_response = "\n".join(
         b.text for b in step4_response.content if hasattr(b, "text")
     )
+
+    # 坂本のログを記録
+    write_agent_log(
+        agent_name="SAKAMOTO",
+        task=user_message[:300],
+        result_summary=f"STEVE→JOHNNY→坂本のフローを完了。出力{len(final_response)}文字",
+        thinking_process=f"STEVEへの指示: {steve_task[:200]}",
+    )
+
+    return final_response
+
+
+def generate_daily_report() -> str:
+    """
+    坂本が1日の作業ログをまとめて日報を作成する
+    スケジューラーから夜22時に呼ばれる
+    """
+    from storage import get_agent_logs
+    from datetime import datetime
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    logs = get_agent_logs(date=today, limit=50)
+
+    if not logs:
+        return f"📋 {today} の日報\n\n本日の作業記録はありませんでした。"
+
+    sakamoto_system = _load_agent_def("SAKAMOTO")
+
+    # ログをテキストに変換
+    log_text = f"# {today} の作業ログ\n\n"
+    for log in logs:
+        log_text += f"## [{log['time'][11:16]}] {log['agent']}\n"
+        log_text += f"**タスク**: {log['task']}\n"
+        if log['result']:
+            log_text += f"**結果**: {log['result']}\n"
+        if log['issues']:
+            log_text += f"**課題**: {log['issues']}\n"
+        if log['thinking']:
+            log_text += f"**思考**: {log['thinking']}\n"
+        log_text += "\n"
+
+    prompt = f"""今日1日の作業ログをまとめて、けんたへの日報を作成してください。
+
+{log_text}
+
+日報のフォーマット：
+📋 日報 [{today}]
+---
+**今日の作業サマリー**（全体を3行以内で）
+---
+**STEVE（分析）の作業**
+・完了したこと
+・発生した課題と対応
+---
+**JOHNNY（デザイン）の作業**
+・完了したこと
+---
+**明日への引き継ぎ事項**（あれば）
+---
+**坂本からひとこと**（高知弁で、前向きに締める）"""
+
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2048,
+        system=sakamoto_system,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "\n".join(b.text for b in response.content if hasattr(b, "text"))
 
 
 def _format_history(history: list) -> str:

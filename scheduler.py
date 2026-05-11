@@ -6,7 +6,7 @@
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from agent import run_agent
+from agent import run_agent, generate_daily_report
 from config import MORNING_REPORT_HOUR, MORNING_REPORT_MINUTE, MARKET_CHECK_HOUR, MARKET_CHECK_MINUTE
 
 logger = logging.getLogger(__name__)
@@ -136,6 +136,17 @@ async def send_evening_report(bot, chat_id: int):
 # セットアップ
 # ─────────────────────────────────────────
 
+async def send_daily_report(bot, chat_id: int):
+    """坂本による日報を送信（平日22時）"""
+    try:
+        logger.info("日報生成開始")
+        report = generate_daily_report()
+        await bot.send_message(chat_id=chat_id, text=report)
+        logger.info("日報送信完了")
+    except Exception as e:
+        logger.error(f"日報エラー: {e}")
+
+
 def setup_scheduler(bot, chat_id: int):
     """定期タスクを登録して起動"""
     scheduler.add_job(
@@ -144,6 +155,13 @@ def setup_scheduler(bot, chat_id: int):
                     day_of_week="mon-fri", timezone="Asia/Tokyo"),
         args=[bot, chat_id], id="morning_report", replace_existing=True,
     )
+    # 平日22:00 - 日報（作業ログまとめ）
+    scheduler.add_job(
+        send_daily_report,
+        CronTrigger(hour=22, minute=0,
+                    day_of_week="mon-fri", timezone="Asia/Tokyo"),
+        args=[bot, chat_id], id="daily_report", replace_existing=True,
+    )
     scheduler.add_job(
         send_evening_report,
         CronTrigger(hour=MARKET_CHECK_HOUR, minute=MARKET_CHECK_MINUTE,
@@ -151,4 +169,4 @@ def setup_scheduler(bot, chat_id: int):
         args=[bot, chat_id], id="evening_report", replace_existing=True,
     )
     scheduler.start()
-    logger.info(f"スケジューラー起動: 朝{MORNING_REPORT_HOUR}時・夜{MARKET_CHECK_HOUR}時（平日）")
+    logger.info(f"スケジューラー起動: 朝{MORNING_REPORT_HOUR}時・夜22時（日報）・夜{MARKET_CHECK_HOUR}時（平日）")
