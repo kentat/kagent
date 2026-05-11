@@ -527,12 +527,15 @@ def get_google_task_lists() -> list:
     """Googleタスクのリスト一覧を取得する"""
     try:
         from googleapiclient.discovery import build
-        service = build("tasks", "v1", credentials=_get_google_creds())
+        creds = _get_google_creds()
+        service = build("tasks", "v1", credentials=creds)
         result = service.tasklists().list(maxResults=20).execute()
         lists = result.get("items", [])
+        if not lists:
+            return [{"message": "タスクリストが0件です（Google Tasksにリストがありません）"}]
         return [{"id": l["id"], "title": l["title"]} for l in lists]
     except Exception as e:
-        return [{"error": str(e)}]
+        return [{"error": f"Google Tasks APIエラー: {str(e)}"}]
 
 
 def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed: bool = False) -> list:
@@ -541,21 +544,22 @@ def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed:
         from googleapiclient.discovery import build
         service = build("tasks", "v1", credentials=_get_google_creds())
 
-        # リスト一覧からIDを取得
         lists_result = service.tasklists().list(maxResults=20).execute()
+        all_lists = lists_result.get("items", [])
+
+        if not all_lists:
+            return [{"error": "Googleタスクにリストが1つもありません"}]
+
+        # タイトルで検索、見つからなければ全リスト名を返す
         tasklist_id = None
-        for l in lists_result.get("items", []):
+        for l in all_lists:
             if tasklist_title.lower() in l["title"].lower():
                 tasklist_id = l["id"]
                 break
 
         if not tasklist_id:
-            # タイトルが見つからなければ最初のリストを使用
-            items = lists_result.get("items", [])
-            if items:
-                tasklist_id = items[0]["id"]
-            else:
-                return [{"error": "タスクリストが見つかりません"}]
+            list_names = [l["title"] for l in all_lists]
+            return [{"error": f"「{tasklist_title}」が見つかりません", "利用可能なリスト": list_names}]
 
         result = service.tasks().list(
             tasklist=tasklist_id,
@@ -565,6 +569,9 @@ def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed:
         ).execute()
 
         tasks = result.get("items", [])
+        if not tasks:
+            return [{"message": f"「{tasklist_title}」にタスクが0件です"}]
+
         return [
             {
                 "id": t["id"],
@@ -577,7 +584,7 @@ def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed:
             for t in tasks
         ]
     except Exception as e:
-        return [{"error": str(e)}]
+        return [{"error": f"Google Tasks APIエラー: {str(e)}"}]
 
 
 def add_google_task(title: str, notes: str = "", due: str = "",
