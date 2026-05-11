@@ -1,13 +1,13 @@
 """
-スケジューラー - 定期実行タスク
-朝7時：市況レポート / 夜23時：ニュースレポート（平日）
+スケジューラー - 定期実行タスク（JST）
+朝6時：市況レポート / 朝7時：日報 / 夕18時：ニュースレポート（平日）
 """
 
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from agent import run_agent, generate_daily_report
-from config import MORNING_REPORT_HOUR, MORNING_REPORT_MINUTE, MARKET_CHECK_HOUR, MARKET_CHECK_MINUTE
+from output import deliver, OutputChannel
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
@@ -68,7 +68,7 @@ get_calendar_events で今日〜3日分の予定を取得
 
 
 def _evening_report_prompt() -> str:
-    return """【夜間ニュースレポート】以下を順番に実行してください。
+    return """【夕方ニュースレポート】以下を順番に実行してください。
 
 === STEP 1: 市場心理 ===
 get_fear_greed_index で Fear & Greed Index を取得
@@ -85,7 +85,7 @@ web_search「AI business use case productivity 2026」で検索
 get_hacker_news でトップ5記事を取得
 
 === 出力フォーマット ===
-🌙 夜間ニュース [日付]
+🌆 夕方ニュース [日付]
 ---
 😱 市場心理: [スコア]/100（[状態]）
 ---
@@ -111,62 +111,63 @@ URLは必ず実際のリンクを記載すること。"""
 # ─────────────────────────────────────────
 
 async def send_morning_report(bot, chat_id: int):
+    """平日 朝6時 - 市況レポート"""
     try:
         logger.info("朝レポート生成開始")
         await bot.send_message(chat_id=chat_id, text="📊 朝の市況レポートを作成中...")
         report = run_agent(_morning_report_prompt())
-        await bot.send_message(chat_id=chat_id, text=report)
+        await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("朝レポート送信完了")
     except Exception as e:
         logger.error(f"朝レポートエラー: {e}")
         await bot.send_message(chat_id=chat_id, text=f"⚠️ レポート生成エラー: {str(e)}")
 
 
-async def send_evening_report(bot, chat_id: int):
+async def send_daily_report(bot, chat_id: int):
+    """平日 朝7時 - 日報（課題・提案・進捗）"""
     try:
-        logger.info("夜間レポート生成開始")
-        report = run_agent(_evening_report_prompt())
-        await bot.send_message(chat_id=chat_id, text=report)
-        logger.info("夜間レポート送信完了")
+        logger.info("日報生成開始")
+        report = generate_daily_report()
+        await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
+        logger.info("日報送信完了")
     except Exception as e:
-        logger.error(f"夜間レポートエラー: {e}")
+        logger.error(f"日報エラー: {e}")
+
+
+async def send_evening_report(bot, chat_id: int):
+    """平日 夕18時 - ニュースレポート"""
+    try:
+        logger.info("夕方レポート生成開始")
+        report = run_agent(_evening_report_prompt())
+        await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
+        logger.info("夕方レポート送信完了")
+    except Exception as e:
+        logger.error(f"夕方レポートエラー: {e}")
 
 
 # ─────────────────────────────────────────
 # セットアップ
 # ─────────────────────────────────────────
 
-async def send_daily_report(bot, chat_id: int):
-    """坂本による日報を送信（平日22時）"""
-    try:
-        logger.info("日報生成開始")
-        report = generate_daily_report()
-        await bot.send_message(chat_id=chat_id, text=report)
-        logger.info("日報送信完了")
-    except Exception as e:
-        logger.error(f"日報エラー: {e}")
-
-
 def setup_scheduler(bot, chat_id: int):
-    """定期タスクを登録して起動"""
+    """定期タスクを登録して起動（すべてJST）"""
+    # 平日 朝6時 - 市況レポート
     scheduler.add_job(
         send_morning_report,
-        CronTrigger(hour=MORNING_REPORT_HOUR, minute=MORNING_REPORT_MINUTE,
-                    day_of_week="mon-fri", timezone="Asia/Tokyo"),
+        CronTrigger(hour=6, minute=0, day_of_week="mon-fri", timezone="Asia/Tokyo"),
         args=[bot, chat_id], id="morning_report", replace_existing=True,
     )
-    # 平日22:00 - 日報（作業ログまとめ）
+    # 平日 朝7時 - 日報
     scheduler.add_job(
         send_daily_report,
-        CronTrigger(hour=22, minute=0,
-                    day_of_week="mon-fri", timezone="Asia/Tokyo"),
+        CronTrigger(hour=7, minute=0, day_of_week="mon-fri", timezone="Asia/Tokyo"),
         args=[bot, chat_id], id="daily_report", replace_existing=True,
     )
+    # 平日 夕18時 - ニュースレポート
     scheduler.add_job(
         send_evening_report,
-        CronTrigger(hour=MARKET_CHECK_HOUR, minute=MARKET_CHECK_MINUTE,
-                    day_of_week="mon-fri", timezone="Asia/Tokyo"),
+        CronTrigger(hour=18, minute=0, day_of_week="mon-fri", timezone="Asia/Tokyo"),
         args=[bot, chat_id], id="evening_report", replace_existing=True,
     )
     scheduler.start()
-    logger.info(f"スケジューラー起動: 朝{MORNING_REPORT_HOUR}時・夜22時（日報）・夜{MARKET_CHECK_HOUR}時（平日）")
+    logger.info("スケジューラー起動: 朝6時（市況）・朝7時（日報）・夕18時（ニュース）（平日 JST）")

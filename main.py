@@ -17,6 +17,7 @@ from config import TELEGRAM_TOKEN, ALLOWED_USER_ID
 from agent import run_agent
 from scheduler import setup_scheduler
 from storage import get_conversation, set_conversation, clear_conversation
+from output import deliver, OutputChannel
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,13 +39,8 @@ def is_allowed(user_id: int) -> bool:
 
 
 async def safe_send(bot, chat_id: int, text: str):
-    """長文を4096文字で分割して送信"""
-    if len(text) <= 4096:
-        await bot.send_message(chat_id=chat_id, text=text)
-    else:
-        for i in range(0, len(text), 4096):
-            await bot.send_message(chat_id=chat_id, text=text[i : i + 4096])
-            await asyncio.sleep(0.3)
+    """output.pyのdeliver経由で送信（後方互換性維持）"""
+    await deliver(bot, chat_id, text, OutputChannel.TELEGRAM)
 
 
 # ─────────────────────────────────────────

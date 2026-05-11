@@ -9,7 +9,7 @@ Kenta Agent Company - 3エージェント構成
 import os
 import anthropic
 from tools import execute_tool
-from storage import write_agent_log, get_recent_knowledge
+from storage import write_agent_log, get_recent_knowledge, log_agent_comm, get_agent_logs, get_issues, get_comm_logs
 
 client = anthropic.Anthropic()
 
@@ -90,6 +90,10 @@ TOOLS = [
     {"name": "complete_task", "description": "タスクを完了にする", "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
     {"name": "get_youtube_new_videos", "description": "登録YouTubeチャンネルの新着動画を取得", "input_schema": {"type": "object", "properties": {"hours": {"type": "integer", "default": 48}}, "required": []}},
     {"name": "get_calendar_events", "description": "Googleカレンダーから予定を取得", "input_schema": {"type": "object", "properties": {"days": {"type": "integer", "default": 3}}, "required": []}},
+    {"name": "add_agent_issue", "description": "発見した課題をGTDリストに追加する", "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}, "title": {"type": "string"}, "detail": {"type": "string", "default": ""}}, "required": ["agent_name", "title"]}},
+    {"name": "add_agent_proposal", "description": "機能改善提案をGTDリストに追加する", "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}, "title": {"type": "string"}, "detail": {"type": "string", "default": ""}}, "required": ["agent_name", "title"]}},
+    {"name": "update_gtd_status", "description": "課題・提案のGTDステータスを更新する", "input_schema": {"type": "object", "properties": {"issue_id": {"type": "integer"}, "gtd_status": {"type": "string"}}, "required": ["issue_id", "gtd_status"]}},
+    {"name": "get_all_issues", "description": "課題・提案一覧を取得する", "input_schema": {"type": "object", "properties": {"agent_name": {"type": "string"}, "issue_type": {"type": "string"}}, "required": []}},
 ]
 
 
@@ -244,11 +248,22 @@ STEVEに渡す分析タスクを明確に定義してください。
         b.text for b in step1_response.content if hasattr(b, "text")
     )
 
+    # 通信ログ: けんた→坂本
+    log_agent_comm("KENTA", "SAKAMOTO", "instruction", user_message[:500])
+    # 通信ログ: 坂本→STEVE
+    log_agent_comm("SAKAMOTO", "STEVE", "instruction", steve_task[:500])
+
     # Step 2: STEVEが分析実行（内部でログ記録）
     raw_data = run_steve(steve_task, conversation_history)
 
+    # 通信ログ: STEVE→JOHNNY
+    log_agent_comm("STEVE", "JOHNNY", "data", raw_data[:500])
+
     # Step 3: JOHNNYが整形（内部でログ記録）
     formatted_data = run_johnny(raw_data, user_message)
+
+    # 通信ログ: JOHNNY→坂本
+    log_agent_comm("JOHNNY", "SAKAMOTO", "response", formatted_data[:500])
 
     # Step 4: 坂本がけんたへの最終返答を生成（高知弁で）
     step4_prompt = f"""けんたへの返答を作成してください。
@@ -281,58 +296,89 @@ STEVEに渡す分析タスクを明確に定義してください。
         result_summary=f"STEVE→JOHNNY→坂本のフローを完了。出力{len(final_response)}文字",
         thinking_process=f"STEVEへの指示: {steve_task[:200]}",
     )
+    # 通信ログ: 坂本→けんた
+    log_agent_comm("SAKAMOTO", "KENTA", "response", final_response[:500])
 
     return final_response
 
 
 def generate_daily_report() -> str:
     """
-    坂本が1日の作業ログをまとめて日報を作成する
-    スケジューラーから夜22時に呼ばれる
+    坂本が1日の作業ログ・課題・提案をまとめて日報を作成する
+    スケジューラーから平日朝7時に呼ばれる
     """
-    from storage import get_agent_logs
     from datetime import datetime
 
     today = datetime.now().strftime("%Y-%m-%d")
     logs = get_agent_logs(date=today, limit=50)
-
-    if not logs:
-        return f"📋 {today} の日報\n\n本日の作業記録はありませんでした。"
+    comm_logs = get_comm_logs(date=today, limit=30)
+    open_issues = get_issues(include_done=False)
+    issues_only = [i for i in open_issues if i["type"] == "issue"]
+    proposals = [i for i in open_issues if i["type"] == "proposal"]
 
     sakamoto_system = _load_agent_def("SAKAMOTO")
 
-    # ログをテキストに変換
-    log_text = f"# {today} の作業ログ\n\n"
-    for log in logs:
-        log_text += f"## [{log['time'][11:16]}] {log['agent']}\n"
-        log_text += f"**タスク**: {log['task']}\n"
-        if log['result']:
-            log_text += f"**結果**: {log['result']}\n"
-        if log['issues']:
-            log_text += f"**課題**: {log['issues']}\n"
-        if log['thinking']:
-            log_text += f"**思考**: {log['thinking']}\n"
-        log_text += "\n"
+    # 作業ログをテキスト化
+    log_text = ""
+    if logs:
+        log_text = "## 作業ログ\n"
+        for log in logs:
+            log_text += f"- [{log['time'][11:16]}] {log['agent']}: {log['task'][:100]}"
+            if log['issues']:
+                log_text += f" ⚠️ {log['issues'][:80]}"
+            log_text += "\n"
 
-    prompt = f"""今日1日の作業ログをまとめて、けんたへの日報を作成してください。
+    # 通信ログをテキスト化
+    comm_text = ""
+    if comm_logs:
+        comm_text = "## エージェント間通信\n"
+        for c in comm_logs[:10]:
+            comm_text += f"- [{c['time'][11:16]}] {c['from']}→{c['to']} ({c['type']}): {c['content'][:80]}\n"
+
+    # 課題をテキスト化
+    issues_text = "## 課題リスト（オープン）\n"
+    if issues_only:
+        for i in issues_only:
+            issues_text += f"- #{i['id']} [{i['agent']}] {i['status_label']} {i['title']}\n"
+    else:
+        issues_text += "現在オープンな課題はありません\n"
+
+    # 提案をテキスト化
+    proposals_text = "## 機能提案リスト（オープン）\n"
+    if proposals:
+        for p in proposals:
+            proposals_text += f"- #{p['id']} [{p['agent']}] {p['status_label']} {p['title']}\n"
+    else:
+        proposals_text += "現在オープンな提案はありません\n"
+
+    prompt = f"""今日1日の作業をまとめて、けんたへの日報を作成してください。
 
 {log_text}
 
-日報のフォーマット：
+{comm_text}
+
+{issues_text}
+
+{proposals_text}
+
+日報フォーマット：
 📋 日報 [{today}]
 ---
-**今日の作業サマリー**（全体を3行以内で）
+**今日のサマリー**（3行以内）
 ---
-**STEVE（分析）の作業**
-・完了したこと
-・発生した課題と対応
+**各エージェントの作業**
+・STEVE: 完了したこと・課題
+・JOHNNY: 完了したこと
 ---
-**JOHNNY（デザイン）の作業**
-・完了したこと
+**課題進捗（GTD）**
+（オープンな課題をステータス別にまとめる）
 ---
-**明日への引き継ぎ事項**（あれば）
+**機能提案リスト**
+（オープンな提案をまとめる）
 ---
-**坂本からひとこと**（高知弁で、前向きに締める）"""
+**明日への引き継ぎ**（あれば）
+---
+**坂本からひとこと**（高知弁で前向きに）"""
 
     response = client.messages.create(
         model="claude-sonnet-4-20250514",

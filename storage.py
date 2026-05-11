@@ -438,3 +438,206 @@ def get_recent_knowledge(agent_name: str = None, days: int = 7) -> list:
         }
         for r in rows
     ]
+
+
+# ─────────────────────────────────────────
+# 課題・機能提案管理（GTD方式）
+# 現在: SQLite
+# 将来: Redis Sorted Set
+#
+# GTDステータス:
+#   inbox / next_action / in_progress / waiting / someday / done
+# ─────────────────────────────────────────
+
+GTD_STATUSES = ["inbox", "next_action", "in_progress", "waiting", "someday", "done"]
+GTD_LABELS = {
+    "inbox":       "📥 受信",
+    "next_action": "▶️ 次のアクション",
+    "in_progress": "🔄 進行中",
+    "waiting":     "⏳ 待機中",
+    "someday":     "💭 いつかやる",
+    "done":        "✅ 完了",
+}
+
+
+def _init_gtd():
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS agent_issues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agent_name TEXT NOT NULL,
+        issue_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        detail TEXT,
+        gtd_status TEXT DEFAULT 'inbox',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )""")
+    conn.commit()
+    conn.close()
+
+
+def add_issue(agent_name: str, title: str, detail: str = "", issue_type: str = "issue") -> int:
+    """
+    課題または機能提案を追加する
+    issue_type: 'issue'（課題）or 'proposal'（機能提案）
+
+    Redis移行時:
+        issue_id = redis_client.incr("issue:seq")
+        redis_client.hset(f"issue:{issue_id}", mapping={...})
+        redis_client.sadd(f"issues:{agent_name}:inbox", issue_id)
+    """
+    _init_gtd()
+    now = datetime.now().isoformat()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO agent_issues
+           (agent_name, issue_type, title, detail, gtd_status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'inbox', ?, ?)""",
+        (agent_name, issue_type, title[:200], detail[:500], now, now),
+    )
+    conn.commit()
+    issue_id = c.lastrowid
+    conn.close()
+    return issue_id
+
+
+def update_issue_status(issue_id: int, gtd_status: str) -> bool:
+    """GTDステータスを更新する"""
+    if gtd_status not in GTD_STATUSES:
+        return False
+    _init_gtd()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "UPDATE agent_issues SET gtd_status=?, updated_at=? WHERE id=?",
+        (gtd_status, datetime.now().isoformat(), issue_id),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
+def get_issues(agent_name: str = None, issue_type: str = None,
+               gtd_status: str = None, include_done: bool = False) -> list:
+    """
+    課題・提案一覧を取得する
+
+    Redis移行時:
+        ids = redis_client.smembers(f"issues:{agent_name}:{gtd_status}")
+        return [redis_client.hgetall(f"issue:{i}") for i in ids]
+    """
+    _init_gtd()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    where = []
+    params = []
+    if agent_name:
+        where.append("agent_name = ?")
+        params.append(agent_name)
+    if issue_type:
+        where.append("issue_type = ?")
+        params.append(issue_type)
+    if gtd_status:
+        where.append("gtd_status = ?")
+        params.append(gtd_status)
+    if not include_done:
+        where.append("gtd_status != 'done'")
+
+    sql = "SELECT id, agent_name, issue_type, title, detail, gtd_status, created_at, updated_at FROM agent_issues"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY updated_at DESC"
+
+    c.execute(sql, params)
+    rows = c.fetchall()
+    conn.close()
+
+    return [
+        {
+            "id": r[0],
+            "agent": r[1],
+            "type": r[2],
+            "title": r[3],
+            "detail": r[4],
+            "status": r[5],
+            "status_label": GTD_LABELS.get(r[5], r[5]),
+            "created_at": r[6],
+            "updated_at": r[7],
+        }
+        for r in rows
+    ]
+
+
+# ─────────────────────────────────────────
+# エージェント間通信ログ
+# 現在: SQLite
+# 将来: Redis Stream
+# ─────────────────────────────────────────
+
+def _init_comm_logs():
+    init_db()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS agent_comm_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_agent TEXT NOT NULL,
+        to_agent TEXT NOT NULL,
+        message_type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        session_date TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )""")
+    conn.commit()
+    conn.close()
+
+
+def log_agent_comm(from_agent: str, to_agent: str,
+                   message_type: str, content: str) -> None:
+    """
+    エージェント間の通信を記録する
+    message_type: 'instruction'（指示）/ 'response'（レスポンス）/ 'data'（データ）
+
+    Redis移行時:
+        redis_client.xadd("agent:comm", {
+            "from": from_agent, "to": to_agent,
+            "type": message_type, "content": content
+        })
+    """
+    _init_comm_logs()
+    now = datetime.now()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO agent_comm_logs
+           (from_agent, to_agent, message_type, content, session_date, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (from_agent, to_agent, message_type,
+         content[:1000], now.strftime("%Y-%m-%d"), now.isoformat()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_comm_logs(date: str = None, limit: int = 30) -> list:
+    """指定日のエージェント間通信ログを取得"""
+    _init_comm_logs()
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        """SELECT from_agent, to_agent, message_type, content, created_at
+           FROM agent_comm_logs WHERE session_date=?
+           ORDER BY created_at ASC LIMIT ?""",
+        (date, limit),
+    )
+    rows = c.fetchall()
+    conn.close()
+    return [
+        {"from": r[0], "to": r[1], "type": r[2], "content": r[3], "time": r[4]}
+        for r in rows
+    ]

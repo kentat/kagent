@@ -447,6 +447,10 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         "complete_task": complete_task,
         "get_youtube_new_videos": get_youtube_new_videos,
         "get_calendar_events": get_calendar_events,
+        "add_agent_issue": add_agent_issue,
+        "add_agent_proposal": add_agent_proposal,
+        "update_gtd_status": update_gtd_status,
+        "get_all_issues": get_all_issues,
     }
     fn = dispatch.get(tool_name)
     if not fn:
@@ -460,3 +464,36 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         )
     except Exception as e:
         return f"ツールエラー ({tool_name}): {str(e)}"
+
+
+# ─────────────────────────────────────────
+# 課題・機能提案管理（GTD方式）
+# ─────────────────────────────────────────
+
+from storage import add_issue, update_issue_status, get_issues, GTD_LABELS
+
+
+def add_agent_issue(agent_name: str, title: str, detail: str = "") -> str:
+    """課題を追加する（issue_type='issue'）"""
+    issue_id = add_issue(agent_name, title, detail, issue_type="issue")
+    return f"✅ 課題#{issue_id}を追加しました: {title}"
+
+
+def add_agent_proposal(agent_name: str, title: str, detail: str = "") -> str:
+    """機能提案を追加する（issue_type='proposal'）"""
+    issue_id = add_issue(agent_name, title, detail, issue_type="proposal")
+    return f"💡 提案#{issue_id}を追加しました: {title}"
+
+
+def update_gtd_status(issue_id: int, gtd_status: str) -> str:
+    """GTDステータスを更新する"""
+    success = update_issue_status(issue_id, gtd_status)
+    if success:
+        label = GTD_LABELS.get(gtd_status, gtd_status)
+        return f"✅ #{issue_id} のステータスを「{label}」に更新しました"
+    return f"⚠️ ステータス更新に失敗しました（有効値: {', '.join(GTD_LABELS.keys())}）"
+
+
+def get_all_issues(agent_name: str = None, issue_type: str = None) -> list:
+    """課題・提案一覧を取得する"""
+    return get_issues(agent_name=agent_name, issue_type=issue_type, include_done=False)
