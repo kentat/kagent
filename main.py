@@ -13,7 +13,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-from config import TELEGRAM_TOKEN, ALLOWED_USER_ID, MY_PORTFOLIO
+from config import TELEGRAM_TOKEN, ALLOWED_USER_ID
 from agent import run_agent
 from scheduler import setup_scheduler
 from storage import get_conversation, set_conversation, clear_conversation
@@ -206,10 +206,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"エージェントエラー: {e}", exc_info=True)
         await update.message.reply_text(f"⚠️ エラーが発生しました: {str(e)}")
 
-
-def _run_and_reply(update, context, prompt):
-    """同期コンテキストからエージェントを実行するヘルパー"""
-    pass  # cmd_morning用のプレースホルダー
 
 
 # ─────────────────────────────────────────
