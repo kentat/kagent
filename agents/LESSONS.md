@@ -46,3 +46,13 @@
 - ✅ カレンダー日付 → 絶対表現（相対表現禁止）
 - ✅ 複数都市天気 → 全都市分ツールを呼ぶ
 - ✅ コマンド実装 → プレースホルダーのまま終わらない
+
+### [2026-05-11] STEVE - Google Calendar invalid_scope エラー
+**問題**: カレンダー取得で `invalid_scope` エラーが発生した
+**原因**: `get_calendar_events` が `calendar.readonly` スコープで認証していたが、新しいトークンは `calendar`（フル）スコープで発行されていた
+**対策**: Google系ツールはすべて `_get_google_creds()` を使いスコープを統一する。新しいOAuthトークン取得後は全Googleツールの動作確認を行う
+
+### [2026-05-11] STEVE - Google Calendar invalid_scope エラー
+**問題**: カレンダー取得で `invalid_scope` エラーが発生した
+**原因**: `get_calendar_events` が `calendar.readonly` スコープで認証していたが、新しいトークンは `calendar`（フル）スコープで発行されていた
+**対策**: Google系ツールはすべて `_get_google_creds()` を使いスコープを統一する。新しいOAuthトークン取得後は全Googleツールの動作確認を行う
