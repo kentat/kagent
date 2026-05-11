@@ -85,7 +85,7 @@ def get_market_indices() -> dict:
                     "value": round(cur, 2),
                     "change_pct": round((cur - prev) / prev * 100 if prev else 0, 2),
                 }
-        except:
+        except Exception:
             pass
     return results
 
@@ -299,7 +299,7 @@ def _fetch_channel_id_from_api(handle: str) -> str:
         )
         items = resp.json().get("items", [])
         return items[0]["id"] if items else ""
-    except:
+    except Exception:
         return ""
 
 
@@ -339,7 +339,7 @@ def get_youtube_new_videos(hours: int = 48) -> list:
                     published = datetime.fromisoformat(pub)
                     if published.tzinfo is None:
                         published = published.replace(tzinfo=timezone.utc)
-                except:
+                except Exception:
                     continue
                 if published < cutoff:
                     continue
@@ -355,7 +355,7 @@ def get_youtube_new_videos(hours: int = 48) -> list:
                     "url": url,
                     "published": jst_str,
                 })
-        except:
+        except Exception:
             continue
     return sorted(results, key=lambda x: x["published"], reverse=True)
 
@@ -519,7 +519,7 @@ def get_google_task_lists() -> list:
         lists = result.get("items", [])
         if not lists:
             return [{"message": "タスクリストが0件です（Google Tasksにリストがありません）"}]
-        return [{"id": l["id"], "title": l["title"]} for l in lists]
+        return [{"id": lst["id"], "title": lst["title"]} for lst in lists]
     except Exception as e:
         return [{"error": f"Google Tasks APIエラー: {str(e)}"}]
 
@@ -538,13 +538,13 @@ def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed:
 
         # タイトルで検索、見つからなければ全リスト名を返す
         tasklist_id = None
-        for l in all_lists:
-            if tasklist_title.lower() in l["title"].lower():
-                tasklist_id = l["id"]
+        for lst in all_lists:
+            if tasklist_title.lower() in lst["title"].lower():
+                tasklist_id = lst["id"]
                 break
 
         if not tasklist_id:
-            list_names = [l["title"] for l in all_lists]
+            list_names = [lst["title"] for lst in all_lists]
             return [{"error": f"「{tasklist_title}」が見つかりません", "利用可能なリスト": list_names}]
 
         result = service.tasks().list(
@@ -582,9 +582,9 @@ def add_google_task(title: str, notes: str = "", due: str = "",
 
         lists_result = service.tasklists().list(maxResults=20).execute()
         tasklist_id = None
-        for l in lists_result.get("items", []):
-            if tasklist_title.lower() in l["title"].lower():
-                tasklist_id = l["id"]
+        for lst in lists_result.get("items", []):
+            if tasklist_title.lower() in lst["title"].lower():
+                tasklist_id = lst["id"]
                 break
         if not tasklist_id:
             items = lists_result.get("items", [])
@@ -612,9 +612,9 @@ def complete_google_task(task_id: str, tasklist_title: str = "バケツリスト
 
         lists_result = service.tasklists().list(maxResults=20).execute()
         tasklist_id = None
-        for l in lists_result.get("items", []):
-            if tasklist_title.lower() in l["title"].lower():
-                tasklist_id = l["id"]
+        for lst in lists_result.get("items", []):
+            if tasklist_title.lower() in lst["title"].lower():
+                tasklist_id = lst["id"]
                 break
         if not tasklist_id:
             items = lists_result.get("items", [])

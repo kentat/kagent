@@ -191,7 +191,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 next_run = "未定"
             jobs.append(f"• {job.id}: 次回 {next_run}")
         jobs_text = "\n".join(jobs) if jobs else "• スケジューラー未起動"
-    except Exception as e:
+    except Exception:
         jobs_text = "• スケジューラー情報取得エラー"
 
     history_count = len(get_conversation(update.effective_user.id))

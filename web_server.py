@@ -76,8 +76,8 @@ def _markdown_to_html(text: str) -> str:
                 line = f"<p>{line}</p>"
 
     return "\n".join(html_lines) if html_lines else "\n".join(
-        f"<p>{l}</p>" if l.strip() and not l.startswith("<") else l
-        for l in lines
+        f"<p>{line}</p>" if line.strip() and not line.startswith("<") else line
+        for line in lines
     )
 
 
@@ -109,7 +109,7 @@ def _build_html(title: str, content: str, updated_at: str, report_type: str) -> 
     try:
         dt = datetime.fromisoformat(updated_at)
         updated_jp = dt.strftime("%Y年%m月%d日 %H:%M")
-    except:
+    except Exception:
         updated_jp = updated_at
 
     nav_items = [
