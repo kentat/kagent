@@ -182,19 +182,6 @@ URLは必ず実際のリンクを記載すること。"""
 # 実行関数
 # ─────────────────────────────────────────
 
-async def send_morning_report(bot, chat_id: int):
-    """平日 朝6時 - 市況レポート"""
-    try:
-        logger.info("朝レポート生成開始")
-        await bot.send_message(chat_id=chat_id, text="📊 朝の市況レポートを作成中...")
-        report = run_agent(_morning_report_prompt())
-        save_report_cache("morning", report)
-        await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
-        logger.info("朝レポート送信完了")
-    except Exception as e:
-        logger.error(f"朝レポートエラー: {e}")
-        await bot.send_message(chat_id=chat_id, text="⚠️ レポートの生成中にエラーが発生しました")
-
 
 async def send_daily_report(bot, chat_id: int):
     """平日 朝7時 - 日報（課題・提案・進捗）"""
