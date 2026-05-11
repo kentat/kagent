@@ -108,18 +108,20 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """朝レポートを即時実行"""
+    """朝レポートを即時実行（データ収集→整形の2段階）"""
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    await update.message.reply_text("🌅 朝レポートを生成中です...1〜2分かかります🙏")
-    from scheduler import _morning_report_prompt
+    await update.message.reply_text("📡 データ収集中...少し待っちょれや🙏")
+    from scheduler import collect_morning_data, send_morning_report
     from storage import save_report_cache
     loop = asyncio.get_running_loop()
     try:
-        report = await loop.run_in_executor(None, lambda: run_agent(_morning_report_prompt()))
-        save_report_cache("morning", report)
-        await safe_send(context.bot, chat_id, report)
+        # Step1: データ収集（STEVE）
+        await loop.run_in_executor(None, lambda: collect_morning_data.__wrapped__(context.bot, chat_id) if hasattr(collect_morning_data, '__wrapped__') else None)
+        await update.message.reply_text("✅ データ収集完了。整形中...")
+        # Step2: 整形して送信（JOHNNY）
+        await send_morning_report(context.bot, chat_id)
     except Exception as e:
         logger.error(f"朝レポートエラー: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text="⚠️ レポートの生成中にエラーが発生しました")
