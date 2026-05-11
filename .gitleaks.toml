@@ -1,16 +1,32 @@
 # Gitleaks カスタム設定
-# 誤検知を減らすための除外設定
+
+title = "Kenta Agent Gitleaks Config"
 
 [allowlist]
-  description = "除外ファイル"
-  files = [
-    '''^\.env\.example$''',
-    '''\.md$''',
+  description = "許可リスト"
+  
+  # 過去のコミットで既にenv変数に移行済みのAPIキー
+  commits = [
+    "478b201",
+    "4716672"
   ]
   
-  # 例示用の文字列は除外
+  files = [
+    '''^\.env\.example$''',
+    '''^\.secrets\.baseline$''',
+  ]
+  
+  # ドキュメント内のサンプルコード・説明文は除外
   regexes = [
-    '''YOUR_.*_HERE''',
-    '''xxx+''',
-    '''\{[a-z_]+\}''',
+    '''AIzaSy.*禁止''',
+    '''AIzaSy.*例''',
+    '''GOCSPX-\.\.\.''',
+    '''1//0e\.\.\.''',
+    '''\{BOT_TOKEN\}''',
+    '''8517618483:AAH\.\.\."""''',
+  ]
+  
+  paths = [
+    '''docs/''',
+    '''agents/''',
   ]

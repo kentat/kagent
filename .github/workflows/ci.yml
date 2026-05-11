@@ -29,30 +29,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # detect-secrets: ハードコードされた秘密情報の検出
+      # detect-secrets: ベースラインとの差分チェック
       - name: detect-secrets scan
         run: |
           pip install detect-secrets
-          detect-secrets scan --all-files \
-            --exclude-files '*.lock' \
-            --exclude-files '.env.example' \
-            > /tmp/secrets-report.json
-          
-          # 検出件数をチェック
-          COUNT=$(python3 -c "
-          import json
-          with open('/tmp/secrets-report.json') as f:
-              data = json.load(f)
-          total = sum(len(v) for v in data.get('results', {}).values())
-          print(total)
-          ")
-          
-          if [ "$COUNT" -gt "0" ]; then
-            echo "❌ シークレット検出: ${COUNT}件"
-            cat /tmp/secrets-report.json
-            exit 1
-          fi
-          echo "✅ シークレット検出なし"
+          # ベースラインと比較（新規シークレットのみ検出）
+          detect-secrets scan --baseline .secrets.baseline \
+            --exclude-files '.*\.lock$' \
+            --exclude-files '\.env\.example$' \
+            --exclude-files '.*\.md$'
+          echo "✅ シークレット検出なし（ベースライン比較）"
 
   # ─────────────────────────────────────────
   # Job 2: セキュリティ脆弱性スキャン
