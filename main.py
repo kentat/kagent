@@ -17,6 +17,7 @@ from config import TELEGRAM_TOKEN, ALLOWED_USER_ID
 from agent import run_agent
 from scheduler import setup_scheduler
 from storage import get_conversation, set_conversation, clear_conversation
+from storage import _use_redis, _get_redis
 from output import deliver, OutputChannel
 
 logging.basicConfig(
@@ -144,7 +145,16 @@ async def cmd_collect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         success = await collect_morning_data(context.bot, chat_id)
         if success:
-            await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了！Redisに保存したき！\n/morning で整形・送信できるぜよ")
+            # Redisから実際のデータ量を確認
+            from scheduler import _RAW_DATA_KEY
+            size = 0
+            if _use_redis():
+                data = _get_redis().get(_RAW_DATA_KEY)
+                size = len(data) if data else 0
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"✅ データ収集完了！Redisに保存したき！\n📊 収集データ: {size:,}文字\n/morning で整形・送信できるぜよ"
+            )
         else:
             await context.bot.send_message(chat_id=chat_id, text="⚠️ データ収集に失敗しました。ログを確認してください")
     except Exception as e:
