@@ -142,10 +142,10 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📡 STEVEがデータ収集中...少し待っちょれや🙏")
     from scheduler import collect_morning_data, send_morning_report
     try:
-        # Step1: STEVEがデータ収集
+        # Step1: ツールのみでデータ収集（AI不使用・APIコスト0）
         await collect_morning_data(context.bot, chat_id)
         await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了。JOHNNYが整形中...")
-        # Step2: JOHNNYが整形して送信
+        # Step2: JOHNNYだけがAIを使って整形・送信
         await send_morning_report(context.bot, chat_id)
     except Exception as e:
         logger.error(f"モーニングブリーフエラー: {e}", exc_info=True)

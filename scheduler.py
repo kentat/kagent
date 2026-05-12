@@ -15,17 +15,13 @@ import logging
 from datetime import datetime
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from agent import run_agent, generate_daily_report, run_steve, run_johnny
+from agent import run_agent, generate_daily_report, run_johnny
+from batch import collect_all_data, save_batch_data, load_batch_data, format_batch_for_johnny
 from output import deliver, OutputChannel
 from storage import save_report_cache, _get_redis, _use_redis
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
-
-# Redisの生データキー
-_RAW_DATA_KEY = "morning:raw_data"
-_RAW_DATA_TTL = 3600  # 1時間（5:30〜6:30まで有効）
-
 
 # ─────────────────────────────────────────
 # モーニングブリーフ Step1: データ収集バッチ（5:30）
@@ -33,24 +29,7 @@ _RAW_DATA_TTL = 3600  # 1時間（5:30〜6:30まで有効）
 # AIによる整形はしない → APIコスト最小
 # ─────────────────────────────────────────
 
-def _data_collection_prompt() -> str:
-    return """【朝のデータ収集バッチ】
-以下のツールをすべて呼び出してデータを収集し、
-収集したデータをそのまま出力してください（整形・要約は不要）。
 
-1. get_market_indices（主要指数）
-2. get_exchange_rate（USD/JPY）
-3. get_portfolio_pnl（ポートフォリオ損益）
-4. get_weather city=Osaka（大阪天気）
-5. get_weather city=Kyoto（京都天気）
-6. get_keihan_status（京阪電車）
-7. get_fear_greed_index（市場心理）
-8. get_google_tasks tasklist_title=バケツリスト due_within_days=3（期限3日以内のタスクのみ）
-9. get_google_tasks tasklist_title=定期 due_within_days=3（期限3日以内のみ）
-10. get_calendar_events（カレンダー3日分）
-11. get_youtube_summary_videos hours=24（購読チャンネルの24時間以内新着動画・字幕要約付き）
-
-すべての生データをそのまま出力してください。"""
 
 
 def _design_prompt(raw_data: str) -> str:
@@ -116,26 +95,25 @@ async def send_morning_report(bot, chat_id: int):
     try:
         logger.info("モーニングブリーフ送信開始（6:00）")
 
-        # Redisから生データを取得
-        raw_data = None
-        if _use_redis():
-            raw_data = _get_redis().get(_RAW_DATA_KEY)
-        if not raw_data:
-            raw_data = getattr(scheduler, '_morning_raw_data', None)
-
-        if not raw_data:
-            # 生データがなければその場で収集（フォールバック）
-            logger.warning("生データなし → その場でデータ収集")
-            await bot.send_message(chat_id=chat_id, text="📊 モーニングブリーフを作成中...")
-            loop = asyncio.get_running_loop()
-            raw_data = await loop.run_in_executor(
-                None, lambda: run_steve(_data_collection_prompt())
-            )
-
-        # JOHNNYが整形（executor経由）
+        # Redisからバッチデータを取得
         loop = asyncio.get_running_loop()
+        batch_data = await loop.run_in_executor(None, load_batch_data)
+        if not batch_data:
+            batch_data = getattr(scheduler, '_morning_batch_data', {})
+
+        if not batch_data:
+            # データなし → その場でバッチ収集（フォールバック）
+            logger.warning("バッチデータなし → その場で収集")
+            await bot.send_message(chat_id=chat_id, text="📊 データ収集中...")
+            batch_data = await loop.run_in_executor(None, collect_all_data)
+
+        raw_text = await loop.run_in_executor(None, format_batch_for_johnny, batch_data)
+        today = datetime.now().strftime("%-m/%-d")
+        design_prompt = f"以下の生データを元に、{today}のモーニングブリーフを整形してください。\n\n{raw_text}"
+
+        # JOHNNYが整形（ここだけAI使用）
         report = await loop.run_in_executor(
-            None, lambda: run_johnny(raw_data, _design_prompt(raw_data))
+            None, lambda: run_johnny(raw_text, design_prompt)
         )
         save_report_cache("morning", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
