@@ -66,7 +66,7 @@ def _design_prompt(raw_data: str) -> str:
 🔗 https://youtu.be/VIDEO_ID"""
 
 
-async def collect_morning_data(bot, chat_id: int):
+async def collect_morning_data(bot, chat_id: int) -> bool:
     """5:30 - STEVEがデータ収集してRedisに保存（AIコスト最小）"""
     import asyncio
     try:
@@ -76,16 +76,21 @@ async def collect_morning_data(bot, chat_id: int):
             None, lambda: run_steve(_data_collection_prompt())
         )
 
-        # 生データをRedisに保存（1時間TTL）
+        if not raw_data or len(raw_data) < 100:
+            logger.error(f"朝データ収集失敗: データが空または短すぎる（{len(raw_data) if raw_data else 0}文字）")
+            return False
+
         if _use_redis():
             _get_redis().setex(_RAW_DATA_KEY, _RAW_DATA_TTL, raw_data)
             logger.info(f"✅ 生データをRedisに保存（{len(raw_data)}文字）")
         else:
             scheduler._morning_raw_data = raw_data
-            logger.info("✅ 生データをメモリに保存（Redisなし）")
+            logger.info(f"✅ 生データをメモリに保存（{len(raw_data)}文字）")
+        return True
 
     except Exception as e:
         logger.error(f"朝データ収集エラー: {e}", exc_info=True)
+        return False
 
 
 async def send_morning_report(bot, chat_id: int):

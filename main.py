@@ -142,8 +142,11 @@ async def cmd_collect(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📡 STEVEがデータ収集中...2〜3分かかります🙏")
     from scheduler import collect_morning_data
     try:
-        await collect_morning_data(context.bot, chat_id)
-        await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了。Redisに保存したき！\n/morning で整形・送信できるぜよ")
+        success = await collect_morning_data(context.bot, chat_id)
+        if success:
+            await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了！Redisに保存したき！\n/morning で整形・送信できるぜよ")
+        else:
+            await context.bot.send_message(chat_id=chat_id, text="⚠️ データ収集に失敗しました。ログを確認してください")
     except Exception as e:
         logger.error(f"データ収集エラー: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text="⚠️ データ収集中にエラーが発生しました")
