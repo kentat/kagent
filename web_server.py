@@ -366,8 +366,20 @@ def _get_page(report_type: str) -> HTMLResponse:
     return HTMLResponse(_build_page(report_type, content, updated_at))
 
 
-@app.get("/health")
-def health(username: str = Depends(verify_credentials)):
+@app.get("/debug")
+def debug(username: str = Depends(verify_credentials)):
+    """デバッグ用：Redis接続とキャッシュの状態確認"""
+    from storage import _use_redis, _get_redis, get_report_cache
+    redis_ok = _use_redis()
+    result = {"redis_connected": redis_ok}
+    if redis_ok:
+        r = _get_redis()
+        result["redis_keys"] = r.keys("report:*")
+    result["morning_cache"] = bool(get_report_cache("morning"))
+    result["evening_cache"] = bool(get_report_cache("evening"))
+    return result
+
+
     return {"status": "ok"}
 
 @app.get("/", response_class=HTMLResponse)
