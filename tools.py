@@ -246,7 +246,7 @@ def get_keihan_status() -> dict:
         else:
             # 判定できない場合は平常通りとみなす
             return {"status": "✅ 平常通り運転", "detail": "情報取得済み（異常なし）"}
-    except Exception as e:
+    except Exception:
         return {"status": "📡 取得エラー", "detail": "京阪公式サイトをご確認ください"}
 
 
