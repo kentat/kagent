@@ -66,6 +66,29 @@ def _design_prompt(raw_data: str) -> str:
 🔗 https://youtu.be/VIDEO_ID"""
 
 
+_RAW_DATA_KEY = "morning:raw_data"
+
+
+def _data_collection_prompt() -> str:
+    """STEVEへのデータ収集指示（ツール呼び出しのみ・整形不要）"""
+    return """【朝のデータ収集バッチ】
+以下のツールをすべて呼び出してデータを収集し、
+収集したデータをそのまま出力してください（整形・要約は不要）。
+
+1. get_market_indices（主要指数）
+2. get_exchange_rate（USD/JPY）
+3. get_portfolio_pnl（ポートフォリオ損益）
+4. get_weather city=Osaka（大阪天気）
+5. get_weather city=Kyoto（京都天気）
+6. get_keihan_status（京阪電車）
+7. get_fear_greed_index（市場心理）
+8. get_upcoming_tasks due_within_days=3（全リスト横断・期限3日以内）
+9. get_calendar_events（カレンダー3日分）
+10. get_youtube_summary_videos hours=24（購読チャンネル24時間以内新着・字幕要約付き）
+
+すべての生データをそのまま出力してください。"""
+
+
 async def collect_morning_data(bot, chat_id: int) -> bool:
     """5:30 - STEVEがデータ収集してRedisに保存（AIコスト最小）"""
     import asyncio
