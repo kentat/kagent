@@ -168,3 +168,13 @@ PYEOF
 **問題**: ci.ymlのgrepパターンが複数行に結合され、意図しない正規表現になった
 **原因**: Python経由でYAMLを書き換えたとき改行が消えた
 **対策**: bashのgrepの代わりにPythonスクリプトで検査する（ヒアドキュメント形式）。CIのstep変更後は必ずActionsのログ実物を確認してから完了とする
+
+### [2026-05-12] Redis - ssl_cert_reqs が redis-py で非対応
+**問題**: `unexpected keyword argument 'ssl_cert_reqs'` でRedis接続失敗
+**原因**: redis-pyのバージョンがssl_cert_reqsパラメータ非対応
+**対策**: ssl_cert_reqs を使わない。Railway Redisは`redis://`で接続できる
+
+### [2026-05-12] Fear & Greed Index - CNNのAPIエンドポイントが不安定
+**問題**: get_fear_greed_index がエラーを返した
+**原因**: CNN APIのレスポンス形式変更またはレート制限
+**対策**: エラー時はデフォルト値（50/Neutral）を返してレポートを継続
