@@ -477,6 +477,7 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         "get_all_issues": get_all_issues,
         "get_subscribed_channels": get_subscribed_channels,
         "get_youtube_summary_videos": get_youtube_summary_videos,
+        "get_google_tasks_due_soon": get_google_tasks_due_soon,
         "get_google_task_lists": get_google_task_lists,
         "get_google_tasks": get_google_tasks,
         "add_google_task": add_google_task,
@@ -818,3 +819,59 @@ def _get_video_summary(video_id: str) -> str:
         return resp.content[0].text.strip()
     except Exception:
         return "（要約取得エラー）"
+
+
+def get_google_tasks_due_soon(days: int = 3) -> list:
+    """
+    全タスクリストを横断して期限N日以内のタスクを返す
+    リスト名に依存しない
+    """
+    try:
+        from googleapiclient.discovery import build
+        from datetime import timezone, timedelta
+        service = build("tasks", "v1", credentials=_get_google_creds())
+
+        # 全リストを取得
+        lists_result = service.tasklists().list(maxResults=20).execute()
+        all_lists = lists_result.get("items", [])
+        if not all_lists:
+            return [{"message": "タスクリストが見つかりません"}]
+
+        now = datetime.now(timezone.utc)
+        cutoff = now + timedelta(days=days)
+        due_soon = []
+
+        for lst in all_lists:
+            try:
+                result = service.tasks().list(
+                    tasklist=lst["id"],
+                    showCompleted=False,
+                    maxResults=50,
+                ).execute()
+                for t in result.get("items", []):
+                    due_str = t.get("due", "")
+                    if not due_str:
+                        continue
+                    try:
+                        due_dt = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
+                        if due_dt <= cutoff:
+                            due_soon.append({
+                                "title": t.get("title", ""),
+                                "due": due_dt.strftime("%-m/%-d"),
+                                "list": lst["title"],
+                                "notes": t.get("notes", ""),
+                            })
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        if not due_soon:
+            return [{"message": f"期限{days}日以内のタスクはありません"}]
+
+        # 期限順にソート
+        due_soon.sort(key=lambda x: x["due"])
+        return due_soon
+
+    except Exception as e:
+        return [{"error": f"タスク取得エラー: {str(e)}"}]
