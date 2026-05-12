@@ -9,7 +9,7 @@ Kenta Agent Company - 3エージェント構成
 import os
 import anthropic
 from tools import execute_tool
-from storage import write_agent_log, get_recent_knowledge, log_agent_comm, get_agent_logs, get_issues, get_comm_logs
+from storage import write_agent_log, get_recent_knowledge, log_agent_comm, get_agent_logs, get_issues, get_comm_logs, save_report_cache
 
 client = anthropic.Anthropic()
 
@@ -391,7 +391,9 @@ def generate_daily_report() -> str:
     else:
         lines.append("本日はまだ作業記録がないぜよ。これから頑張るき！")
 
-    return "\n".join(lines)
+    report = "\n".join(lines)
+    save_report_cache("daily", report)
+    return report
 
 
 def _format_history(history: list) -> str:
