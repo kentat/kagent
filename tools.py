@@ -233,29 +233,45 @@ def get_keihan_status() -> dict:
 # ─────────────────────────────────────────
 
 def get_fear_greed_index() -> dict:
+    """Fear & Greed Index を取得（CNNのAPIが変更された場合の代替エンドポイント付き）"""
+    endpoints = [
+        "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+        "https://fear-and-greed-index.p.rapidapi.com/v1/fgi",
+    ]
+    label_map = {
+        "Extreme Fear": "極度の恐怖 😱",
+        "Fear": "恐怖 😨",
+        "Neutral": "中立 😐",
+        "Greed": "強欲 😏",
+        "Extreme Greed": "極度の強欲 🤑",
+    }
     try:
         resp = requests.get(
-            "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+            endpoints[0],
             headers={"User-Agent": "Mozilla/5.0"},
             timeout=10,
         )
-        fg = resp.json()["fear_and_greed"]
-        score = round(float(fg["score"]))
-        rating = fg["rating"]
-        label_map = {
-            "Extreme Fear": "極度の恐怖 😱",
-            "Fear": "恐怖 😨",
-            "Neutral": "中立 😐",
-            "Greed": "強欲 😏",
-            "Extreme Greed": "極度の強欲 🤑",
-        }
+        resp.raise_for_status()
+        data = resp.json()
+        # レスポンス形式の違いに対応
+        if "fear_and_greed" in data:
+            fg = data["fear_and_greed"]
+            score = round(float(fg["score"]))
+            rating = fg.get("rating", "Neutral")
+        elif "fgi" in data:
+            fg = data["fgi"]
+            score = round(float(fg.get("now", {}).get("value", 50)))
+            rating = fg.get("now", {}).get("valueText", "Neutral")
+        else:
+            return {"score": 50, "rating": "Neutral", "label_jp": "データ取得不可 😐"}
+
         return {
             "score": score,
             "rating": rating,
             "label_jp": label_map.get(rating, rating),
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"score": 50, "rating": "Neutral", "label_jp": f"取得エラー（{str(e)[:30]}）😐"}
 
 
 # ─────────────────────────────────────────
