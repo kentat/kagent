@@ -293,7 +293,7 @@ def get_fear_greed_index() -> dict:
             "label_jp": label_map.get(rating, rating),
         }
     except Exception as e:
-        return {"score": 50, "rating": "Neutral", "label_jp": f"取得エラー（{str(e)[:30]}）😐"}
+        return {"score": None, "rating": "ERROR", "label_jp": f"[Fear&Greed取得失敗: {str(e)[:60]}]"}
 
 
 # ─────────────────────────────────────────
@@ -536,9 +536,11 @@ def get_all_issues(agent_name: str = None, issue_type: str = None) -> list:
 # ─────────────────────────────────────────
 
 def _get_google_creds():
-    """Google OAuth認証情報を取得する"""
+    """Google OAuth認証情報を取得してリフレッシュする"""
     from google.oauth2.credentials import Credentials
-    return Credentials(
+    from google.auth.transport.requests import Request
+
+    creds = Credentials(
         token=None,
         refresh_token=os.getenv("GOOGLE_REFRESH_TOKEN", ""),
         token_uri="https://oauth2.googleapis.com/token",
@@ -550,6 +552,9 @@ def _get_google_creds():
             "https://www.googleapis.com/auth/youtube.readonly",
         ],
     )
+    if not creds.valid:
+        creds.refresh(Request())
+    return creds
 
 
 def get_google_task_lists() -> list:
