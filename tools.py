@@ -545,6 +545,7 @@ def _get_google_creds():
         scopes=[
             "https://www.googleapis.com/auth/calendar",
             "https://www.googleapis.com/auth/tasks",
+            "https://www.googleapis.com/auth/youtube.readonly",
         ],
     )
 
