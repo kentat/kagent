@@ -131,7 +131,8 @@ def save_note(content: str, category: str = "general") -> str:
     c = conn.cursor()
     c.execute("INSERT INTO notes (content, category, created_at) VALUES (?, ?, ?)",
               (content, category, datetime.now().isoformat()))
-    conn.commit(); note_id = c.lastrowid; conn.close()
+    conn.commit(); note_id = c.lastrowid
+    conn.close()
     return f"✅ メモ#{note_id}保存（{category}）"
 
 def get_notes(category: Optional[str] = None, limit: int = 10) -> list:
@@ -152,7 +153,8 @@ def get_notes(category: Optional[str] = None, limit: int = 10) -> list:
         c.execute("SELECT id,content,category,created_at FROM notes WHERE category=? ORDER BY created_at DESC LIMIT ?", (category, limit))
     else:
         c.execute("SELECT id,content,category,created_at FROM notes ORDER BY created_at DESC LIMIT ?", (limit,))
-    rows = c.fetchall(); conn.close()
+    rows = c.fetchall()
+    conn.close()
     return [{"id": r[0], "content": r[1], "category": r[2], "created_at": r[3]} for r in rows]
 
 
@@ -175,7 +177,8 @@ def add_task(title: str, due_date: Optional[str] = None) -> str:
     c = conn.cursor()
     c.execute("INSERT INTO tasks (title, status, due_date, created_at) VALUES (?, 'pending', ?, ?)",
               (title, due_date, datetime.now().isoformat()))
-    conn.commit(); task_id = c.lastrowid; conn.close()
+    conn.commit(); task_id = c.lastrowid
+    conn.close()
     return f"✅ タスク#{task_id}追加: {title}"
 
 def get_tasks(status: str = "pending") -> list:
@@ -192,7 +195,8 @@ def get_tasks(status: str = "pending") -> list:
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id,title,status,due_date,created_at FROM tasks WHERE status=? ORDER BY created_at DESC", (status,))
-    rows = c.fetchall(); conn.close()
+    rows = c.fetchall()
+    conn.close()
     return [{"id": r[0], "title": r[1], "status": r[2], "due_date": r[3], "created_at": r[4]} for r in rows]
 
 def complete_task(task_id: int) -> str:
@@ -205,7 +209,8 @@ def complete_task(task_id: int) -> str:
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("UPDATE tasks SET status='done' WHERE id=?", (task_id,))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     return f"✅ タスク#{task_id}完了"
 
 
@@ -220,7 +225,8 @@ def get_channel_id(handle: str) -> str:
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT channel_id FROM yt_channels WHERE handle=?", (handle,))
-    row = c.fetchone(); conn.close()
+    row = c.fetchone()
+    conn.close()
     return row[0] if row else ""
 
 def set_channel_id(handle: str, channel_id: str) -> None:
@@ -232,7 +238,8 @@ def set_channel_id(handle: str, channel_id: str) -> None:
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO yt_channels VALUES (?,?,?)",
               (handle, channel_id, datetime.now().isoformat()))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 
 # ─────────────────────────────────────────
@@ -249,7 +256,8 @@ def save_report_cache(report_type: str, content: str) -> None:
     c = conn.cursor()
     c.execute("INSERT OR REPLACE INTO report_cache (report_type, content, updated_at) VALUES (?, ?, ?)",
               (report_type, content, datetime.now().isoformat()))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def get_report_cache(report_type: str) -> dict:
     if _use_redis():
@@ -259,7 +267,8 @@ def get_report_cache(report_type: str) -> dict:
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT content, updated_at FROM report_cache WHERE report_type=?", (report_type,))
-    row = c.fetchone(); conn.close()
+    row = c.fetchone()
+    conn.close()
     return {"content": row[0], "updated_at": row[1]} if row else {}
 
 
@@ -290,7 +299,8 @@ def write_agent_log(agent_name: str, task: str, result_summary: str = "",
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
               (agent_name, now.strftime("%Y-%m-%d"), task[:300],
                result_summary[:500], issues[:300], thinking_process[:500], now.isoformat()))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def get_agent_logs(date: str = None, agent_name: str = None, limit: int = 20) -> list:
     if date is None:
@@ -318,7 +328,8 @@ def get_agent_logs(date: str = None, agent_name: str = None, limit: int = 20) ->
         c.execute("""SELECT agent_name, task, result_summary, issues, thinking_process, created_at
                      FROM agent_logs WHERE session_date=?
                      ORDER BY created_at DESC LIMIT ?""", (date, limit))
-    rows = c.fetchall(); conn.close()
+    rows = c.fetchall()
+    conn.close()
     return [{"agent": r[0], "task": r[1], "result": r[2], "issues": r[3], "thinking": r[4], "time": r[5]} for r in rows]
 
 def get_recent_knowledge(agent_name: str = None, days: int = 7) -> list:
@@ -348,7 +359,8 @@ def get_recent_knowledge(agent_name: str = None, days: int = 7) -> list:
         c.execute("""SELECT agent_name, task, result_summary, issues, thinking_process, session_date
                      FROM agent_logs WHERE session_date >= ?
                      ORDER BY created_at DESC LIMIT 50""", (cutoff,))
-    rows = c.fetchall(); conn.close()
+    rows = c.fetchall()
+    conn.close()
     return [{"agent": r[0], "task": r[1], "result": r[2], "issues": r[3], "thinking": r[4], "date": r[5]} for r in rows]
 
 
@@ -382,7 +394,8 @@ def add_issue(agent_name: str, title: str, detail: str = "", issue_type: str = "
                (agent_name, issue_type, title, detail, gtd_status, created_at, updated_at)
                VALUES (?, ?, ?, ?, 'inbox', ?, ?)""",
               (agent_name, issue_type, title[:200], detail[:500], now, now))
-    conn.commit(); issue_id = c.lastrowid; conn.close()
+    conn.commit(); issue_id = c.lastrowid
+    conn.close()
     return issue_id
 
 def update_issue_status(issue_id: int, gtd_status: str) -> bool:
@@ -403,7 +416,8 @@ def update_issue_status(issue_id: int, gtd_status: str) -> bool:
     c = conn.cursor()
     c.execute("UPDATE agent_issues SET gtd_status=?, updated_at=? WHERE id=?",
               (gtd_status, datetime.now().isoformat(), issue_id))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
     return True
 
 def get_issues(agent_name: str = None, issue_type: str = None,
@@ -439,7 +453,8 @@ def get_issues(agent_name: str = None, issue_type: str = None,
     if where: sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY updated_at DESC"
     c.execute(sql, params)
-    rows = c.fetchall(); conn.close()
+    rows = c.fetchall()
+    conn.close()
     return [{"id": r[0], "agent": r[1], "type": r[2], "title": r[3], "detail": r[4],
              "status": r[5], "status_label": GTD_LABELS.get(r[5], r[5]),
              "created_at": r[6], "updated_at": r[7]} for r in rows]
@@ -468,7 +483,8 @@ def log_agent_comm(from_agent: str, to_agent: str, message_type: str, content: s
                VALUES (?, ?, ?, ?, ?, ?)""",
               (from_agent, to_agent, message_type, content[:500],
                now.strftime("%Y-%m-%d"), now.isoformat()))
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 
 def get_comm_logs(date: str = None, limit: int = 30) -> list:
     if date is None:
@@ -490,5 +506,6 @@ def get_comm_logs(date: str = None, limit: int = 30) -> list:
     c.execute("""SELECT from_agent, to_agent, message_type, content, created_at
                  FROM agent_comm_logs WHERE session_date=?
                  ORDER BY created_at ASC LIMIT ?""", (date, limit))
-    rows = c.fetchall(); conn.close()
+    rows = c.fetchall()
+    conn.close()
     return [{"from": r[0], "to": r[1], "type": r[2], "content": r[3], "time": r[4]} for r in rows]
