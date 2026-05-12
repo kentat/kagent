@@ -268,7 +268,7 @@ def save_log():
 
 def main():
     print(f"\n{'='*50}")
-    print(f"Kenta Agent pre-push テスト")
+    print("Kenta Agent pre-push テスト")
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*50}\n")
 

@@ -157,6 +157,12 @@ jobs:
           print("✅ 全エンドポイントに認証あり")
           PYEOF
 
+      - name: リグレッションテスト（pytest）
+        run: |
+          pip install pytest pytest-asyncio -q
+          python3 -m pytest tests/ -v --tb=short --no-header
+          echo "✅ リグレッションテスト完了"
+
   # ─────────────────────────────────────────
   # Job 4: ハードコーディングチェック
   # ─────────────────────────────────────────
