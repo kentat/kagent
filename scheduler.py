@@ -78,7 +78,14 @@ def _design_prompt(raw_data: str) -> str:
 ---
 📅 今日の予定（日付は「5/14（水）13:30〜」形式。「明日」禁止）
 ---
-📺 YouTube新着（なければ「📭 過去48時間の新着動画はありませんでした」）"""
+📺 YouTube新着
+（新着あれば各動画を以下の形式で表示。なければ「📭 過去24時間の新着動画はありませんでした」）
+
+📺 【チャンネル名】タイトル
+🕐 MM/DD HH:MM
+• 要約の箇条書き（5〜7行）
+💡 ポイント: 結論1行
+🔗 https://youtu.be/VIDEO_ID"""
 
 
 async def collect_morning_data(bot, chat_id: int):

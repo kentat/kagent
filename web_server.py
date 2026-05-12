@@ -83,7 +83,19 @@ def _md_to_html(text: str) -> str:
             out.append("</ul>")
             in_list = False
         p = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', stripped)
-        p = re.sub(r'(https?://[^\s<>"]+)', r'<a href="\1" target="_blank">\1</a>', p)
+        # YouTubeリンクはサムネイル付きカードに変換
+        def make_yt_card(m):
+            url = m.group(1)
+            if "youtu.be/" in url or "youtube.com/watch" in url:
+                vid = re.search(r'(?:youtu\.be/|v=)([A-Za-z0-9_-]{11})', url)
+                if vid:
+                    v = vid.group(1)
+                    return f'''<a href="{url}" target="_blank" class="yt-card">
+                        <img src="https://img.youtube.com/vi/{v}/mqdefault.jpg" class="yt-thumb" loading="lazy">
+                        <span class="yt-label">▶ YouTubeで見る</span>
+                    </a>'''
+            return f'<a href="{url}" target="_blank">{url}</a>'
+        p = re.sub(r'(https?://[^\s<>"]+)', make_yt_card, p)
         out.append(f'<p>{p}</p>')
     if in_list:
         out.append("</ul>")
@@ -328,6 +340,30 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
     @keyframes fadeIn {{
       from {{ opacity: 0; transform: translateY(6px); }}
       to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* ── YouTube Card ── */
+    .yt-card {{
+      display: block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 8px 0;
+      text-decoration: none;
+    }}
+    .yt-thumb {{
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      display: block;
+    }}
+    .yt-label {{
+      display: block;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 500;
     }}
 
     @media (prefers-color-scheme: light) {{

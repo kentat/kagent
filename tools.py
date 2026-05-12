@@ -758,8 +758,10 @@ def get_youtube_summary_videos(hours: int = 24) -> list:
                         "channel": ch["title"],
                         "title": entry.get("title", ""),
                         "url": f"https://youtu.be/{video_id}",
+                        "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
                         "video_id": video_id,
                         "published": pub_dt.strftime("%m/%d %H:%M"),
+                        "thumbnail": f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg",
                     })
             except Exception:
                 continue
@@ -788,19 +790,28 @@ def _get_video_summary(video_id: str) -> str:
             return "（字幕なし）"
 
         # 先頭3000文字に制限（コスト節約）
-        text = " ".join([t["text"] for t in transcript])[:3000]
+        text = " ".join([t["text"] for t in transcript])[:6000]
         if not text.strip():
             return "（字幕なし）"
 
-        # Claudeで要約
+        # Claudeで要約（詳しめ・5〜7行）
         import anthropic
         client = anthropic.Anthropic()
         resp = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=150,
+            max_tokens=300,
             messages=[{
                 "role": "user",
-                "content": f"以下の動画字幕を2〜3行で要約してください。投資・AI関連なら重要な数字や主張を含めること。\n\n{text}"
+                "content": f"""以下の動画字幕を要約してください。
+
+ルール:
+- 5〜7行程度でしっかり内容を伝える
+- 投資・株・AIの動画なら重要な銘柄・数字・主張を必ず含める
+- 箇条書きで読みやすく
+- 最後に「💡 ポイント:」で1行の結論を書く
+
+字幕:
+{text}"""
             }]
         )
         return resp.content[0].text.strip()
