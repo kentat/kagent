@@ -195,3 +195,33 @@ PYEOF
 - F841はexcept節でeを使わない場合は `except Exception:` にする（eを省略）
 - push前に `ruff check . --select E,W,F --ignore E501,E402,F401,E701,E702` で必ず確認
 - スクショのコミットハッシュを見て「古い失敗通知か最新か」を判断してから修正に入る
+
+---
+
+## push前の必須手順（最新版）
+
+### コミット・push前に必ずこれを実行する
+
+```bash
+cd ~/kagent
+python3 test_local.py
+```
+
+**全部✅** → git commit → git push OK
+**❌あり** → 修正してから再実行
+
+### test_local.pyが確認する33項目
+
+- 構文チェック（8ファイル）
+- 必須関数の存在確認（agent/scheduler/storage）
+- Telegramコマンドの定義・登録整合性
+- ツール整合性（agent.py↔tools.py dispatch）
+- Web認証（全EPにBasic認証あり）
+- agents/MDファイル全5件の存在
+- requirements.txtのパッケージ確認
+- APIキーのハードコード検出
+- エラー詳細漏洩検出
+
+### テスト結果ログ
+
+結果は `test_results.log` に自動追記される。
