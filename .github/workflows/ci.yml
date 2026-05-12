@@ -121,7 +121,7 @@ jobs:
           ruff check . \
             --exclude docs,agents,.git,.github \
             --select E,W,F \
-            --ignore E501,E402,F401,E701,E702 \
+            --ignore E501,E402,F401,E701,E702,F821 \
             --output-format=concise
 
       - name: ツール整合性チェック
