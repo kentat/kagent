@@ -67,6 +67,7 @@ def _design_prompt(raw_data: str) -> str:
 
 
 _RAW_DATA_KEY = "morning:raw_data"
+_RAW_DATA_TTL = 3600  # 1時間TTL
 
 
 def _data_collection_prompt() -> str:
