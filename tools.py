@@ -761,10 +761,8 @@ def get_youtube_summary_videos(hours: int = 24) -> list:
                         "channel": ch["title"],
                         "title": entry.get("title", ""),
                         "url": f"https://youtu.be/{video_id}",
-                        "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
                         "video_id": video_id,
                         "published": pub_dt.strftime("%m/%d %H:%M"),
-                        "thumbnail": f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg",
                     })
             except Exception:
                 continue
@@ -773,7 +771,7 @@ def get_youtube_summary_videos(hours: int = 24) -> list:
             return [{"message": f"過去{hours}時間の新着動画はありませんでした"}]
 
         # 字幕取得して要約（最大5件）
-        for video in new_videos[:5]:
+        for video in new_videos:  # 全件要約
             video["summary"] = _get_video_summary(video["video_id"])
 
         return new_videos
