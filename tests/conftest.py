@@ -11,7 +11,7 @@ os.environ.setdefault("REDIS_URL", "")
 os.environ.setdefault("DB_PATH", tempfile.mktemp(suffix="_test.db"))
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 os.environ.setdefault("WEB_USERNAME", "testuser")
-os.environ.setdefault("WEB_PASSWORD", "testpass")
+os.environ.setdefault("WEB_PASSWORD", "testpass")  # pragma: allowlist secret
 os.environ.setdefault("ALLOWED_USER_ID", "12345")
 
 # 外部パッケージを全てモック（インストール不要）

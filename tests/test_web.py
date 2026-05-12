@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["REDIS_URL"] = ""
 os.environ["WEB_USERNAME"] = "testuser"
-os.environ["WEB_PASSWORD"] = "testpass"
+os.environ["WEB_PASSWORD"] = "testpass"  # pragma: allowlist secret
 import tempfile
 os.environ["DB_PATH"] = tempfile.mktemp(suffix=".db")
 
