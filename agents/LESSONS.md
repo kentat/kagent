@@ -178,3 +178,8 @@ PYEOF
 **問題**: get_fear_greed_index がエラーを返した
 **原因**: CNN APIのレスポンス形式変更またはレート制限
 **対策**: エラー時はデフォルト値（50/Neutral）を返してレポートを継続
+
+### [2026-05-12] main.py - str_replaceでcmd関数が消失
+**問題**: cmd_reportが未定義エラーでworkerがクラッシュ
+**原因**: cmd_eveningを「cmd_reportの直前に挿入」するつもりがstr_replaceで置換してしまい、cmd_report関数ごと消えた
+**対策**: 関数を追加するときはstr_replaceではなく、既存関数の直後のコードブロックを置換する。追加後は必ずgrep -n "^async def cmd_" main.pyで全関数の存在を確認する
