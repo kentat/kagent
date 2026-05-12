@@ -562,10 +562,12 @@ def get_google_task_lists() -> list:
         return [{"error": f"Google Tasks APIエラー: {str(e)}"}]
 
 
-def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed: bool = False) -> list:
-    """指定したリストのタスクを取得する"""
+def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed: bool = False,
+                     due_within_days: int = None) -> list:
+    """指定したリストのタスクを取得する。due_within_days指定で期限N日以内のみ返す"""
     try:
         from googleapiclient.discovery import build
+        from datetime import timezone, timedelta
         service = build("tasks", "v1", credentials=_get_google_creds())
 
         lists_result = service.tasklists().list(maxResults=20).execute()
@@ -574,7 +576,6 @@ def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed:
         if not all_lists:
             return [{"error": "Googleタスクにリストが1つもありません"}]
 
-        # タイトルで検索、見つからなければ全リスト名を返す
         tasklist_id = None
         for lst in all_lists:
             if tasklist_title.lower() in lst["title"].lower():
@@ -589,24 +590,40 @@ def get_google_tasks(tasklist_title: str = "バケツリスト", show_completed:
             tasklist=tasklist_id,
             showCompleted=show_completed,
             showHidden=show_completed,
-            maxResults=50,
+            maxResults=100,
         ).execute()
 
         tasks = result.get("items", [])
         if not tasks:
             return [{"message": f"「{tasklist_title}」にタスクが0件です"}]
 
-        return [
-            {
+        output = []
+        now = datetime.now(timezone.utc)
+        for t in tasks:
+            due_str = t.get("due", "")
+            task_data = {
                 "id": t["id"],
                 "title": t.get("title", ""),
                 "status": t.get("status", ""),
-                "due": t.get("due", ""),
+                "due": due_str,
                 "notes": t.get("notes", ""),
                 "tasklist_id": tasklist_id,
             }
-            for t in tasks
-        ]
+            if due_within_days is not None:
+                if not due_str:
+                    continue
+                try:
+                    due_dt = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
+                    if due_dt <= now + timedelta(days=due_within_days):
+                        output.append(task_data)
+                except Exception:
+                    continue
+            else:
+                output.append(task_data)
+
+        if not output:
+            return [{"message": f"期限{due_within_days}日以内のタスクはありません"}]
+        return output
     except Exception as e:
         return [{"error": f"Google Tasks APIエラー: {str(e)}"}]
 

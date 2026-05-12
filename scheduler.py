@@ -45,8 +45,8 @@ def _data_collection_prompt() -> str:
 5. get_weather city=Kyoto（京都天気）
 6. get_keihan_status（京阪電車）
 7. get_fear_greed_index（市場心理）
-8. get_google_tasks tasklist_title=Inbox
-9. get_google_tasks tasklist_title=定期
+8. get_google_tasks tasklist_title=バケツリスト due_within_days=3（期限3日以内のタスクのみ）
+9. get_google_tasks tasklist_title=定期 due_within_days=3（期限3日以内のみ）
 10. get_calendar_events（カレンダー3日分）
 11. get_youtube_new_videos hours=24（YouTube新着）
 
