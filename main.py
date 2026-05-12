@@ -59,7 +59,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• 「ポートフォリオ全部の株価チェックして」\n"
         "• 「NVDAの最近のニュース調べて」\n"
         "• 「今日やること：〇〇をタスクに追加して」\n"
-        "• 「朝レポート今すぐ出して」\n\n"
+        "• 「モーニングブリーフを今すぐ出して」\n\n"
         "コマンド一覧は /help"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
@@ -74,7 +74,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/start — 起動メッセージ\n"
         "/help — このヘルプ\n"
         "/clear — 会話履歴をリセット\n"
-        "/morning — 朝レポートを今すぐ実行\n"
+        "/morning — モーニングブリーフを今すぐ実行\n"
         "/portfolio — ポートフォリオ株価一括確認\n"
         "/tasks — 未完了タスク一覧\n"
         "/notes — 最近のメモ一覧\n"
@@ -108,7 +108,7 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """朝レポートを即時実行（データ収集→整形の2段階）"""
+    """モーニングブリーフを即時実行（データ収集→整形の2段階）"""
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
@@ -121,7 +121,7 @@ async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Step2: JOHNNYが整形して送信
         await send_morning_report(context.bot, chat_id)
     except Exception as e:
-        logger.error(f"朝レポートエラー: {e}", exc_info=True)
+        logger.error(f"モーニングブリーフエラー: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text="⚠️ レポートの生成中にエラーが発生しました")
 
 
@@ -253,7 +253,7 @@ def main():
     async def post_init(app):
         """起動時に実行：コマンド登録＋スケジューラー起動"""
         await app.bot.set_my_commands([
-            BotCommand("morning", "朝の市況レポートを今すぐ実行"),
+            BotCommand("morning", "モーニングブリーフを今すぐ実行"),
             BotCommand("report", "日報を今すぐ確認"),
             BotCommand("portfolio", "ポートフォリオ株価確認"),
             BotCommand("tasks", "タスク一覧"),

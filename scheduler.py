@@ -1,7 +1,7 @@
 """
 スケジューラー - 定期実行タスク（JST）
 
-【朝レポートの2段階処理】
+【モーニングブリーフの2段階処理】
 5:30 → STEVEがデータ収集バッチ（ツール呼び出し・生データをRedisに保存）
 6:00 → JOHNNYが保存済みデータを整形して送信（APIコスト最小・高速）
 
@@ -28,7 +28,7 @@ _RAW_DATA_TTL = 3600  # 1時間（5:30〜6:30まで有効）
 
 
 # ─────────────────────────────────────────
-# 朝レポート Step1: データ収集バッチ（5:30）
+# モーニングブリーフ Step1: データ収集バッチ（5:30）
 # STEVEがツールを呼び出して生データをRedisに保存
 # AIによる整形はしない → APIコスト最小
 # ─────────────────────────────────────────
@@ -55,7 +55,7 @@ def _data_collection_prompt() -> str:
 
 def _design_prompt(raw_data: str) -> str:
     today = datetime.now().strftime("%-m/%-d")
-    return f"""以下の生データを朝レポートとして整形してください。
+    return f"""以下の生データをモーニングブリーフとして整形してください。
 
 【生データ】
 {raw_data}
@@ -107,7 +107,7 @@ async def send_morning_report(bot, chat_id: int):
     """6:00 - 保存済み生データをJOHNNYが整形して送信（高速・低コスト）"""
     import asyncio
     try:
-        logger.info("朝レポート送信開始（6:00）")
+        logger.info("モーニングブリーフ送信開始（6:00）")
 
         # Redisから生データを取得
         raw_data = None
@@ -119,7 +119,7 @@ async def send_morning_report(bot, chat_id: int):
         if not raw_data:
             # 生データがなければその場で収集（フォールバック）
             logger.warning("生データなし → その場でデータ収集")
-            await bot.send_message(chat_id=chat_id, text="📊 朝レポートを作成中...")
+            await bot.send_message(chat_id=chat_id, text="📊 モーニングブリーフを作成中...")
             loop = asyncio.get_running_loop()
             raw_data = await loop.run_in_executor(
                 None, lambda: run_steve(_data_collection_prompt())
@@ -132,10 +132,10 @@ async def send_morning_report(bot, chat_id: int):
         )
         save_report_cache("morning", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
-        logger.info("朝レポート送信完了")
+        logger.info("モーニングブリーフ送信完了")
 
     except Exception as e:
-        logger.error(f"朝レポートエラー: {e}")
+        logger.error(f"モーニングブリーフエラー: {e}")
         await bot.send_message(chat_id=chat_id, text="⚠️ レポートの生成中にエラーが発生しました")
 
 
@@ -198,13 +198,13 @@ async def send_daily_report(bot, chat_id: int):
 async def send_evening_report(bot, chat_id: int):
     """平日 夕18時 - ニュースレポート"""
     try:
-        logger.info("夕方レポート生成開始")
+        logger.info("イブニングニュース生成開始")
         report = run_agent(_evening_report_prompt())
         save_report_cache("evening", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
-        logger.info("夕方レポート送信完了")
+        logger.info("イブニングニュース送信完了")
     except Exception as e:
-        logger.error(f"夕方レポートエラー: {e}")
+        logger.error(f"イブニングニュースエラー: {e}")
 
 
 # ─────────────────────────────────────────
@@ -220,7 +220,7 @@ def setup_scheduler(bot, chat_id: int):
         CronTrigger(hour=5, minute=30, day_of_week="mon-fri", timezone="Asia/Tokyo"),
         args=[bot, chat_id], id="collect_morning_data", replace_existing=True,
     )
-    # 平日 6:00 - 朝レポート送信（JOHNNYが整形・高速）
+    # 平日 6:00 - モーニングブリーフ送信（JOHNNYが整形・高速）
     scheduler.add_job(
         send_morning_report,
         CronTrigger(hour=6, minute=0, day_of_week="mon-fri", timezone="Asia/Tokyo"),
@@ -239,4 +239,4 @@ def setup_scheduler(bot, chat_id: int):
         args=[bot, chat_id], id="evening_report", replace_existing=True,
     )
     scheduler.start()
-    logger.info("スケジューラー起動: 5:30データ収集→6:00朝レポート→7:00日報→18:00ニュース（平日 JST）")
+    logger.info("スケジューラー起動: 5:30データ収集→6:00モーニングブリーフ→7:00日報→18:00ニュース（平日 JST）")

@@ -91,7 +91,7 @@ def _md_to_html(text: str) -> str:
 
 
 def _build_page(report_type: str, content: str, updated_at: str) -> str:
-    titles = {"morning": "Morning Brief", "evening": "Evening News", "daily": "Daily Report"}
+    titles = {"morning": "モーニングブリーフ", "evening": "イブニングニュース", "daily": "日報"}
     icons  = {"morning": "🌅", "evening": "🌆", "daily": "📋"}
     title  = titles.get(report_type, "Report")
     icon   = icons.get(report_type, "📄")
@@ -117,9 +117,9 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
         </div>"""
 
     nav_items = [
-        ("/",        "🌅", "Morning",  "morning"),
-        ("/evening", "🌆", "Evening",  "evening"),
-        ("/report",  "📋", "Daily",    "daily"),
+        ("/",        "🌅", "Morning", "morning"),
+        ("/evening", "🌆", "Evening", "evening"),
+        ("/report",  "📋", "日報",    "daily"),
     ]
     nav_html = ""
     for href, ico, label, key in nav_items:
