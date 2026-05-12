@@ -122,33 +122,33 @@ async def send_morning_report(bot, chat_id: int):
     import asyncio
     try:
         logger.info("モーニングブリーフ送信開始（6:00）")
-
-        # Redisからバッチデータを取得
         loop = asyncio.get_running_loop()
-        batch_data = await loop.run_in_executor(None, load_batch_data)
-        if not batch_data:
-            batch_data = getattr(scheduler, '_morning_batch_data', {})
 
-        if not batch_data:
-            # データなし → その場でバッチ収集（フォールバック）
-            logger.warning("バッチデータなし → その場で収集")
+        # Redisから生データを取得
+        raw_data = None
+        if _use_redis():
+            raw_data = _get_redis().get(_RAW_DATA_KEY)
+        if not raw_data:
+            raw_data = getattr(scheduler, '_morning_raw_data', None)
+
+        if not raw_data:
+            # データなし → その場でSTEVEが収集（フォールバック）
+            logger.warning("生データなし → その場でデータ収集")
             await bot.send_message(chat_id=chat_id, text="📊 データ収集中...")
-            batch_data = await loop.run_in_executor(None, collect_all_data)
-
-        raw_text = await loop.run_in_executor(None, format_batch_for_johnny, batch_data)
-        today = datetime.now().strftime("%-m/%-d")
-        design_prompt = f"以下の生データを元に、{today}のモーニングブリーフを整形してください。\n\n{raw_text}"
+            raw_data = await loop.run_in_executor(
+                None, lambda: run_steve(_data_collection_prompt())
+            )
 
         # JOHNNYが整形（ここだけAI使用）
         report = await loop.run_in_executor(
-            None, lambda: run_johnny(raw_text, design_prompt)
+            None, lambda: run_johnny(raw_data, _design_prompt(raw_data))
         )
         save_report_cache("morning", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("モーニングブリーフ送信完了")
 
     except Exception as e:
-        logger.error(f"モーニングブリーフエラー: {e}")
+        logger.error(f"モーニングブリーフエラー: {e}", exc_info=True)
         await bot.send_message(chat_id=chat_id, text="⚠️ レポートの生成中にエラーが発生しました")
 
 
