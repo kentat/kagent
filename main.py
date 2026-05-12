@@ -134,18 +134,29 @@ async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text="⚠️ 日報の生成中にエラーが発生しました")
 
 
-async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """モーニングブリーフを即時実行（データ収集→整形の2段階）"""
+async def cmd_collect(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """STEVEがデータ収集のみ実行（5:30バッチの手動実行）"""
     if not is_allowed(update.effective_user.id):
         return
     chat_id = update.effective_chat.id
-    await update.message.reply_text("📡 STEVEがデータ収集中...少し待っちょれや🙏")
-    from scheduler import collect_morning_data, send_morning_report
+    await update.message.reply_text("📡 STEVEがデータ収集中...2〜3分かかります🙏")
+    from scheduler import collect_morning_data
     try:
-        # Step1: ツールのみでデータ収集（AI不使用・APIコスト0）
         await collect_morning_data(context.bot, chat_id)
-        await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了。JOHNNYが整形中...")
-        # Step2: JOHNNYだけがAIを使って整形・送信
+        await context.bot.send_message(chat_id=chat_id, text="✅ データ収集完了。Redisに保存したき！\n/morning で整形・送信できるぜよ")
+    except Exception as e:
+        logger.error(f"データ収集エラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ データ収集中にエラーが発生しました")
+
+
+async def cmd_morning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """JOHNNYがRedisの収集済みデータを整形・送信（6:00相当）"""
+    if not is_allowed(update.effective_user.id):
+        return
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("🎨 JOHNNYが整形中...少し待っちょれや🙏")
+    from scheduler import send_morning_report
+    try:
         await send_morning_report(context.bot, chat_id)
     except Exception as e:
         logger.error(f"モーニングブリーフエラー: {e}", exc_info=True)
@@ -280,7 +291,8 @@ def main():
     async def post_init(app):
         """起動時に実行：コマンド登録＋スケジューラー起動"""
         await app.bot.set_my_commands([
-            BotCommand("morning", "モーニングブリーフを今すぐ実行"),
+            BotCommand("collect", "STEVEがデータ収集（5:30相当）"),
+            BotCommand("morning", "JOHNNYが整形・送信（6:00相当）"),
             BotCommand("evening", "イブニングニュースを今すぐ実行"),
             BotCommand("report", "日報を今すぐ確認"),
             BotCommand("portfolio", "ポートフォリオ株価確認"),
@@ -306,6 +318,7 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("clear", cmd_clear))
+    app.add_handler(CommandHandler("collect", cmd_collect))
     app.add_handler(CommandHandler("morning", cmd_morning))
     app.add_handler(CommandHandler("evening", cmd_evening))
     app.add_handler(CommandHandler("report", cmd_report))
