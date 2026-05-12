@@ -100,7 +100,7 @@ async def collect_morning_data(bot, chat_id: int) -> bool:
             None, lambda: run_steve(_data_collection_prompt())
         )
 
-        if not raw_data or len(raw_data) < 100:
+        if not raw_data or len(raw_data) < 50 or "タイムアウト" in raw_data:
             logger.error(f"朝データ収集失敗: データが空または短すぎる（{len(raw_data) if raw_data else 0}文字）")
             return False
 

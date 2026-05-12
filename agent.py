@@ -123,7 +123,7 @@ def run_steve(task: str, conversation_history: list = None) -> str:
     for _ in range(15):
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4096,
+            max_tokens=8192,
             system=steve_system,
             tools=TOOLS,
             messages=messages,
