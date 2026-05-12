@@ -91,7 +91,18 @@ async def cmd_clear(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🧹 会話履歴をリセットしました")
 
 
-async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """イブニングニュースを即時実行"""
+    if not is_allowed(update.effective_user.id):
+        return
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("🌆 イブニングニュースを生成中...少し待っちょれや🙏")
+    from scheduler import send_evening_report
+    try:
+        await send_evening_report(context.bot, chat_id)
+    except Exception as e:
+        logger.error(f"イブニングニュースエラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ エラーが発生しました")
     """日報を即時生成"""
     if not is_allowed(update.effective_user.id):
         return
@@ -254,6 +265,7 @@ def main():
         """起動時に実行：コマンド登録＋スケジューラー起動"""
         await app.bot.set_my_commands([
             BotCommand("morning", "モーニングブリーフを今すぐ実行"),
+            BotCommand("evening", "イブニングニュースを今すぐ実行"),
             BotCommand("report", "日報を今すぐ確認"),
             BotCommand("portfolio", "ポートフォリオ株価確認"),
             BotCommand("tasks", "タスク一覧"),
@@ -279,6 +291,7 @@ def main():
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("clear", cmd_clear))
     app.add_handler(CommandHandler("morning", cmd_morning))
+    app.add_handler(CommandHandler("evening", cmd_evening))
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("portfolio", cmd_portfolio))
     app.add_handler(CommandHandler("tasks", cmd_tasks))
