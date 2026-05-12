@@ -214,18 +214,40 @@ def get_keihan_status() -> dict:
             timeout=10,
         )
         resp.encoding = "utf-8"
-        text = re.sub(r"<[^>]+>", " ", resp.text)
+
+        # 運行情報の主要部分だけ抽出（ページ全体だと誤検知が多い）
+        html = resp.text
+        # メインコンテンツ部分を絞り込む
+        main_match = re.search(r'<main[^>]*>(.*?)</main>', html, re.DOTALL)
+        target = main_match.group(1) if main_match else html[:5000]
+
+        text = re.sub(r"<[^>]+>", " ", target)
         text = re.sub(r"\s+", " ", text).strip()
-        if "平常通り運転" in text or "平常運転" in text:
-            return {"status": "✅ 平常通り運転", "detail": "遅延・運転見合わせなし"}
-        elif "遅延" in text:
-            return {"status": "⚠️ 遅延あり", "detail": "京阪電車で遅延が発生しています"}
-        elif "運転見合わせ" in text or "運休" in text:
+
+        # 「現在」「ただいま」「発生中」などの現在進行形の表現と組み合わせて判定
+        is_normal = (
+            "平常通り運転" in text
+            or "平常運転" in text
+            or "平常どおり" in text
+            or "遅れはございません" in text
+        )
+        is_delayed = (
+            ("遅延" in text and ("現在" in text or "発生" in text or "ただいま" in text))
+            or "大幅な遅れ" in text
+        )
+        is_suspended = "運転見合わせ" in text or "運休" in text
+
+        if is_suspended:
             return {"status": "🚫 運転見合わせ", "detail": "一部区間で運転を見合わせています"}
+        elif is_delayed:
+            return {"status": "⚠️ 遅延あり", "detail": "京阪電車で遅延が発生しています"}
+        elif is_normal:
+            return {"status": "✅ 平常通り運転", "detail": "遅延・運転見合わせなし"}
         else:
-            return {"status": "📡 情報取得中", "detail": "京阪電車公式サイトをご確認ください"}
+            # 判定できない場合は平常通りとみなす
+            return {"status": "✅ 平常通り運転", "detail": "情報取得済み（異常なし）"}
     except Exception as e:
-        return {"status": "⚠️ 取得エラー", "detail": str(e)}
+        return {"status": "📡 取得エラー", "detail": "京阪公式サイトをご確認ください"}
 
 
 # ─────────────────────────────────────────

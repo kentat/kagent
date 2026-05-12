@@ -48,7 +48,7 @@ def _data_collection_prompt() -> str:
 8. get_google_tasks tasklist_title=Inbox
 9. get_google_tasks tasklist_title=定期
 10. get_calendar_events（カレンダー3日分）
-11. get_youtube_new_videos hours=48（YouTube新着）
+11. get_youtube_new_videos hours=24（YouTube新着）
 
 すべての生データをそのまま出力してください。"""
 
