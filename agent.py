@@ -23,6 +23,7 @@ def _load_agent_def(name: str) -> str:
     """
     agents/{name}.md + COMPANY.md + LESSONS.md + 直近ナレッジを結合して
     システムプロンプトとして返す。
+    JOHNNYは出力整形専門のため、過去ナレッジは含めない（出力に混入する問題を防ぐ）
     """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     agents_dir = os.path.join(base_dir, "agents")
@@ -38,20 +39,21 @@ def _load_agent_def(name: str) -> str:
     lessons    = read_md("LESSONS.md")
     agent_def  = read_md(f"{name}.md")
 
-    # 直近7日分のナレッジを読み込む
-    recent_logs = get_recent_knowledge(agent_name=name, days=7)
+    # JOHNNYは整形専門 → 過去ナレッジを含めない（出力に混入するリスクがある）
     knowledge_text = ""
-    if recent_logs:
-        lines = [f"# 直近の作業ナレッジ（{name}）"]
-        for log in recent_logs[:10]:  # 最大10件
-            lines.append(f"\n### {log['date']} - {log['task'][:60]}")
-            if log['result']:
-                lines.append(f"**結果**: {log['result'][:200]}")
-            if log['issues']:
-                lines.append(f"**課題**: {log['issues'][:200]}")
-            if log['thinking']:
-                lines.append(f"**思考**: {log['thinking'][:200]}")
-        knowledge_text = "\n".join(lines)
+    if name != "JOHNNY":
+        recent_logs = get_recent_knowledge(agent_name=name, days=7)
+        if recent_logs:
+            lines = [f"# 直近の作業ナレッジ（{name}）"]
+            for log in recent_logs[:10]:
+                lines.append(f"\n### {log['date']} - {log['task'][:60]}")
+                if log['result']:
+                    lines.append(f"**結果**: {log['result'][:200]}")
+                if log['issues']:
+                    lines.append(f"**課題**: {log['issues'][:200]}")
+                if log['thinking']:
+                    lines.append(f"**思考**: {log['thinking'][:200]}")
+            knowledge_text = "\n".join(lines)
 
     parts = []
     if company:
