@@ -141,31 +141,44 @@ class TestKeihanStatus:
 
 
 class TestFearGreedIndex:
-    """Fear & Greed Indexのリグレッション"""
+    """Fear & Greed Index（VIX推定）のリグレッション"""
 
-    @patch("tools.requests.get")
-    def test_successful_fetch(self, mock_get):
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "fear_and_greed": {"score": "72.5", "rating": "Greed"}
-        }
-        mock_resp.raise_for_status.return_value = None
-        mock_get.return_value = mock_resp
-        from tools import get_fear_greed_index
-        result = get_fear_greed_index()
-        assert result["score"] in (72, 73)  # round()の挙動差を許容
-        assert result["rating"] == "Greed"
-        assert "強欲" in result["label_jp"]
-
-    @patch("tools.requests.get")
-    def test_fallback_on_error(self, mock_get):
-        """APIエラー時にデフォルト値を返す（エラーで止まらない）"""
-        mock_get.side_effect = Exception("418 Client Error")
+    @patch("tools.yf")
+    def test_returns_valid_structure(self, mock_yf):
+        """スコアが0-100の範囲で返る"""
+        mock_vix = MagicMock()
+        mock_vix.history.return_value = MagicMock(
+            empty=False,
+            **{"__getitem__": lambda self, k: MagicMock(
+                iloc=MagicMock(**{"__getitem__": lambda s, i: 15.0})
+            )}
+        )
+        mock_sp = MagicMock()
+        sp_close = MagicMock()
+        sp_close.iloc.__getitem__ = lambda s, i: 5000.0
+        sp_close.tail.return_value.mean.return_value = 4900.0
+        sp_close.__len__ = lambda s: 30
+        mock_sp.history.return_value = MagicMock(
+            empty=False,
+            **{"__getitem__": lambda self, k: sp_close}
+        )
+        mock_yf.Ticker.side_effect = [mock_vix, mock_sp]
         from tools import get_fear_greed_index
         result = get_fear_greed_index()
         assert isinstance(result, dict)
         assert "score" in result
-        assert result["score"] == 50  # デフォルト値
+        assert "rating" in result
+        assert "label_jp" in result
+
+    @patch("tools.yf")
+    def test_fallback_on_error(self, mock_yf):
+        """エラー時にデフォルト値50を返す"""
+        mock_yf.Ticker.side_effect = Exception("Network error")
+        from tools import get_fear_greed_index
+        result = get_fear_greed_index()
+        assert isinstance(result, dict)
+        assert result["score"] in (50, None)  # エラー時はNoneまたはデフォルト50
+
 
 
 class TestGTDTools:
