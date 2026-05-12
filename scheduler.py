@@ -65,7 +65,7 @@ def _design_prompt(raw_data: str) -> str:
 各動画のフォーマット:
 📺 【{channel}】{title}
 🕐 {published}
-{summary（字幕ありの場合）}
+{summary (字幕ありの場合)}
 🔗 {url}
 
 （新着なしの場合のみ「📭 過去24時間の新着動画はありませんでした」）"""
