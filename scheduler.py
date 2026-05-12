@@ -95,7 +95,13 @@ def _data_collection_prompt() -> str:
 7. get_fear_greed_index（市場心理）
 8. get_upcoming_tasks due_within_days=3（全リスト横断・期限3日以内）
 9. get_calendar_events（カレンダー3日分）
-10. get_youtube_new_videos hours=48（登録チャンネル48時間以内新着動画）
+10. get_youtube_summary_videos hours=24（購読チャンネル24時間以内新着・字幕要約付き）
+
+YouTube動画の出力は必ず以下の形式で全件出力すること：
+【チャンネル名】タイトル
+URL: https://youtu.be/VIDEO_ID
+公開: MM/DD HH:MM
+要約: （字幕ありの場合のみ）
 
 すべての生データをそのまま出力してください。"""
 
