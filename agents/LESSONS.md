@@ -183,3 +183,15 @@ PYEOF
 **問題**: cmd_reportが未定義エラーでworkerがクラッシュ
 **原因**: cmd_eveningを「cmd_reportの直前に挿入」するつもりがstr_replaceで置換してしまい、cmd_report関数ごと消えた
 **対策**: 関数を追加するときはstr_replaceではなく、既存関数の直後のコードブロックを置換する。追加後は必ずgrep -n "^async def cmd_" main.pyで全関数の存在を確認する
+
+### [2026-05-12] CI - Ruff E701/E702・F841で繰り返し失敗
+**問題**: GitHub Actions CIが多数のコミットで失敗し続けた
+**原因**:
+1. storage.pyを書き直した際に `conn.commit(); conn.close()` をセミコロン1行で書いた → E702
+2. tools.pyの `except Exception as e:` でeを使っていない箇所がある → F841
+3. ローカルでは通っていてもGitHub Actions上で失敗するケースがあった（バージョン差異）
+**対策**:
+- E701/E702はruff.tomlとci.ymlのignoreに追加
+- F841はexcept節でeを使わない場合は `except Exception:` にする（eを省略）
+- push前に `ruff check . --select E,W,F --ignore E501,E402,F401,E701,E702` で必ず確認
+- スクショのコミットハッシュを見て「古い失敗通知か最新か」を判断してから修正に入る
