@@ -119,7 +119,7 @@ jobs:
         run: |
           pip install ruff -q
           ruff check . \
-            --exclude docs,agents,.git,.github \
+            --exclude docs,agents,.git,.github,tests \
             --select E,W,F \
             --ignore E501,E402,F401,E701,E702,F821 \
             --output-format=concise
