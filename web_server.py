@@ -97,10 +97,17 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
     icon   = icons.get(report_type, "📄")
 
     try:
-        dt = datetime.fromisoformat(updated_at)
-        updated_jp = dt.strftime("%-m月%-d日 %H:%M")
+        if not updated_at:
+            updated_jp = "未取得"
+        else:
+            from zoneinfo import ZoneInfo
+            dt = datetime.fromisoformat(updated_at)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+            dt_jst = dt.astimezone(ZoneInfo("Asia/Tokyo"))
+            updated_jp = dt_jst.strftime("%-m/%-d %H:%M 更新")
     except Exception:
-        updated_jp = updated_at
+        updated_jp = "不明"
 
     body_html = _md_to_html(content) if content else """
         <div class="empty">
@@ -362,7 +369,7 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
 def _get_page(report_type: str) -> HTMLResponse:
     cache = get_report_cache(report_type)
     content    = cache.get("content", "")
-    updated_at = cache.get("updated_at", datetime.now().isoformat())
+    updated_at = cache.get("updated_at", "")  # 空なら「未取得」として表示
     return HTMLResponse(_build_page(report_type, content, updated_at))
 
 
