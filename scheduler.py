@@ -48,7 +48,7 @@ def _data_collection_prompt() -> str:
 8. get_google_tasks tasklist_title=バケツリスト due_within_days=3（期限3日以内のタスクのみ）
 9. get_google_tasks tasklist_title=定期 due_within_days=3（期限3日以内のみ）
 10. get_calendar_events（カレンダー3日分）
-11. get_youtube_new_videos hours=24（YouTube新着）
+11. get_youtube_summary_videos hours=24（購読チャンネルの24時間以内新着動画・字幕要約付き）
 
 すべての生データをそのまま出力してください。"""
 

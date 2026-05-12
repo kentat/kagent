@@ -475,6 +475,8 @@ def execute_tool(tool_name: str, tool_input: dict) -> str:
         "add_agent_proposal": add_agent_proposal,
         "update_gtd_status": update_gtd_status,
         "get_all_issues": get_all_issues,
+        "get_subscribed_channels": get_subscribed_channels,
+        "get_youtube_summary_videos": get_youtube_summary_videos,
         "get_google_task_lists": get_google_task_lists,
         "get_google_tasks": get_google_tasks,
         "add_google_task": add_google_task,
@@ -683,3 +685,124 @@ def complete_google_task(task_id: str, tasklist_title: str = "バケツリスト
         return f"✅ タスク完了: #{task_id}"
     except Exception as e:
         return f"⚠️ タスク完了エラー: {str(e)}"
+
+
+# ─────────────────────────────────────────
+# YouTube購読チャンネルの新着動画（要約付き）
+# ─────────────────────────────────────────
+
+def get_subscribed_channels() -> list:
+    """Googleアカウントの購読チャンネル一覧を取得する"""
+    try:
+        from googleapiclient.discovery import build
+        service = build("youtube", "v3", credentials=_get_google_creds())
+        channels = []
+        next_page = None
+        while True:
+            req = service.subscriptions().list(
+                part="snippet",
+                mine=True,
+                maxResults=50,
+                pageToken=next_page,
+            )
+            resp = req.execute()
+            for item in resp.get("items", []):
+                snippet = item["snippet"]
+                channels.append({
+                    "channel_id": snippet["resourceId"]["channelId"],
+                    "title": snippet["title"],
+                })
+            next_page = resp.get("nextPageToken")
+            if not next_page:
+                break
+        return channels
+    except Exception as e:
+        return [{"error": f"購読チャンネル取得エラー: {str(e)}"}]
+
+
+def get_youtube_summary_videos(hours: int = 24) -> list:
+    """
+    購読チャンネルのN時間以内の新着動画を取得し、
+    字幕があれば要約付きで返す（5:30バッチ処理用）
+    """
+    import feedparser
+    from datetime import timezone, timedelta
+
+    try:
+        # 購読チャンネルを取得
+        channels = get_subscribed_channels()
+        if not channels or "error" in channels[0]:
+            return [{"error": "購読チャンネルを取得できませんでした"}]
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        new_videos = []
+
+        for ch in channels:
+            channel_id = ch.get("channel_id", "")
+            if not channel_id:
+                continue
+            try:
+                feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+                feed = feedparser.parse(feed_url)
+                for entry in feed.entries[:5]:
+                    published = entry.get("published_parsed")
+                    if not published:
+                        continue
+                    from time import mktime
+                    pub_dt = datetime.fromtimestamp(mktime(published), tz=timezone.utc)
+                    if pub_dt < cutoff:
+                        continue
+
+                    video_id = entry.get("yt_videoid", "")
+                    new_videos.append({
+                        "channel": ch["title"],
+                        "title": entry.get("title", ""),
+                        "url": f"https://youtu.be/{video_id}",
+                        "video_id": video_id,
+                        "published": pub_dt.strftime("%m/%d %H:%M"),
+                    })
+            except Exception:
+                continue
+
+        if not new_videos:
+            return [{"message": f"過去{hours}時間の新着動画はありませんでした"}]
+
+        # 字幕取得して要約（最大5件）
+        for video in new_videos[:5]:
+            video["summary"] = _get_video_summary(video["video_id"])
+
+        return new_videos
+
+    except Exception as e:
+        return [{"error": f"YouTube新着取得エラー: {str(e)}"}]
+
+
+def _get_video_summary(video_id: str) -> str:
+    """字幕を取得してAnthropicで要約する"""
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        # 日本語優先、なければ英語
+        try:
+            transcript = YouTubeTranscriptApi.get_transcript(video_id, languages=["ja", "en"])
+        except Exception:
+            return "（字幕なし）"
+
+        # 先頭3000文字に制限（コスト節約）
+        text = " ".join([t["text"] for t in transcript])[:3000]
+        if not text.strip():
+            return "（字幕なし）"
+
+        # Claudeで要約
+        import anthropic
+        client = anthropic.Anthropic()
+        resp = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=150,
+            messages=[{
+                "role": "user",
+                "content": f"以下の動画字幕を2〜3行で要約してください。投資・AI関連なら重要な数字や主張を含めること。\n\n{text}"
+            }]
+        )
+        return resp.content[0].text.strip()
+    except Exception:
+        return "（要約取得エラー）"
