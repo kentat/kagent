@@ -25,7 +25,18 @@ def _get_redis():
     global _redis_client
     if _redis_client is None and REDIS_URL:
         import redis
-        _redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        try:
+            # SSL対応（rediss://の場合）、タイムアウト設定
+            _redis_client = redis.from_url(
+                REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                ssl_cert_reqs=None,  # SSL証明書検証を無効化
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Redis接続エラー: {e}")
     return _redis_client
 
 
@@ -35,8 +46,9 @@ def _use_redis() -> bool:
         if r:
             r.ping()
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Redis ping失敗（SQLiteにフォールバック）: {e}")
     return False
 
 
