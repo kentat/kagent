@@ -161,14 +161,14 @@ def _log_steve_work(task: str, result: str, messages: list) -> None:
     if "エラー" in result or "error" in result.lower():
         issues = "ツールエラーが発生した"
 
-    thinking = f"使用ツール: {', '.join(set(tools_used))}" if tools_used else ""
+    tools_summary = f"使用ツール({len(set(tools_used))}種): {', '.join(set(tools_used))}" if tools_used else "ツール未使用"
 
     write_agent_log(
         agent_name="STEVE",
-        task=task[:300],
-        result_summary=result[:500],
+        task=f"[データ収集・分析] {task[:200]}",
+        result_summary=f"収集完了: {len(result)}文字のデータ",
         issues=issues,
-        thinking_process=thinking,
+        thinking_process=tools_summary,
     )
 
 
@@ -198,12 +198,12 @@ Jony Iveの設計哲学に従い、本質的にシンプルで、
     )
     result = "\n".join(b.text for b in response.content if hasattr(b, "text"))
 
-    # ログを記録
+    # JOHNNYは「整形のみ」を記録（分析はSTEVEの仕事）
     write_agent_log(
         agent_name="JOHNNY",
-        task=f"整形: {original_request[:200]}",
-        result_summary=f"出力文字数: {len(result)}文字",
-        thinking_process="Jony Ive哲学（本質的シンプルさ）に従い整形",
+        task="出力整形（Jony Ive哲学・Telegram/Web向け）",
+        result_summary=f"整形完了: {len(result)}文字出力",
+        thinking_process="Less is more. 本質的シンプルさで整形。データの改ざんなし。",
     )
     return result
 
