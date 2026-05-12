@@ -159,7 +159,7 @@ jobs:
 
       - name: リグレッションテスト（pytest）
         run: |
-          pip install pytest pytest-asyncio -q
+          pip install pytest pytest-asyncio fastapi httpx -q
           python3 -m pytest tests/ -v --tb=short --no-header
           echo "✅ リグレッションテスト完了"
 

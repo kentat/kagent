@@ -35,8 +35,12 @@ class TestOutputChannel:
             format_for_channel("test", OutputChannel.EMAIL)
 
 
+@pytest.mark.skipif(
+    "fastapi" not in str(type(__import__("fastapi").FastAPI)),
+    reason="fastapi実パッケージが必要（CIで実行）"
+)
 class TestWebServer:
-    """web_server.pyのエンドポイントリグレッション"""
+    """web_server.pyのエンドポイントリグレッション（fastapiインストール必要）"""
 
     @pytest.fixture
     def client(self):

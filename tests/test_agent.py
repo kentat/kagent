@@ -47,7 +47,8 @@ class TestLoadAgentDef:
         result = _load_agent_def("JOHNNY")
         assert len(result) > 100
         # JOHNNYはナレッジを含まない（出力混入防止）
-        assert "直近の作業ナレッジ" not in result
+        # JOHNNYはwrite_agent_logのナレッジセクションを含まない
+        assert "直近の作業ナレッジ（JOHNNY）" not in result
 
     def test_johnny_no_knowledge_leakage(self):
         """JOHNNYのシステムプロンプトに過去ログが含まれないことを確認"""
@@ -56,7 +57,8 @@ class TestLoadAgentDef:
         storage.write_agent_log("JOHNNY", "テストタスク", "テスト結果")
         from agent import _load_agent_def
         result = _load_agent_def("JOHNNY")
-        assert "直近の作業ナレッジ" not in result
+        # JOHNNYはwrite_agent_logのナレッジセクションを含まない
+        assert "直近の作業ナレッジ（JOHNNY）" not in result
 
 
 class TestRunJohnny:

@@ -19,6 +19,7 @@ MOCK_MODULES = {
     "yfinance": MagicMock(),
     "anthropic": MagicMock(),
     "fastapi": MagicMock(),
+    "fastapi.testclient": MagicMock(),
     "fastapi.security": MagicMock(),
     "fastapi.responses": MagicMock(),
     "uvicorn": MagicMock(),
