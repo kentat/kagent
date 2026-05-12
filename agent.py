@@ -331,21 +331,27 @@ def generate_daily_report() -> str:
     # 日報テキストを直接構築（Claudeを通さず構造化して返す）
     lines = [f"📋 日報 {today_jp}\n"]
 
-    for agent, emoji, role in [
-        ("SAKAMOTO", "🏯", "秘書"),
-        ("STEVE",    "💡", "分析"),
-        ("JOHNNY",   "🎨", "デザイン"),
+    for agent, emoji, role, description in [
+        ("SAKAMOTO", "🏯", "秘書",    "けんたとの窓口・チーム指揮"),
+        ("STEVE",    "💡", "分析",    "データ収集・ツール実行"),
+        ("JOHNNY",   "🎨", "デザイン", "出力整形・Telegram/Web向け美化"),
     ]:
         logs_for = agent_logs.get(agent, [])
-        lines.append(f"{emoji} **{agent}（{role}）**")
+        lines.append(f"{emoji} **{agent}（{role}）** _{description}_")
         lines.append("─" * 20)
 
-        # 作業内容
+        # 作業内容（STEVEは「分析」、JOHNNYは「整形」と明記）
         if logs_for:
             lines.append("**📝 作業内容**")
             for log in logs_for:
                 t = log["time"][11:16]
-                lines.append(f"  [{t}] {log['task']}")
+                task_text = log["task"]
+                # JOHNNYは整形担当であることを明示
+                if agent == "JOHNNY" and not task_text.startswith("整形"):
+                    task_text = f"整形: {task_text}"
+                elif agent == "STEVE" and not task_text.startswith("分析"):
+                    task_text = f"分析: {task_text}"
+                lines.append(f"  [{t}] {task_text[:100]}")
                 if log["result"]:
                     lines.append(f"  → {log['result'][:120]}")
         else:
