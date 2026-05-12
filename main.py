@@ -103,6 +103,22 @@ async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"イブニングニュースエラー: {e}", exc_info=True)
         await context.bot.send_message(chat_id=chat_id, text="⚠️ エラーが発生しました")
+
+
+async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """日報を即時生成"""
+    if not is_allowed(update.effective_user.id):
+        return
+    chat_id = update.effective_chat.id
+    await update.message.reply_text("📋 日報を生成中です...少しお待ちください🙏")
+    loop = asyncio.get_running_loop()
+    try:
+        from agent import generate_daily_report
+        report = await loop.run_in_executor(None, generate_daily_report)
+        await deliver(context.bot, chat_id, report, OutputChannel.TELEGRAM)
+    except Exception as e:
+        logger.error(f"日報エラー: {e}", exc_info=True)
+        await context.bot.send_message(chat_id=chat_id, text="⚠️ 日報の生成中にエラーが発生しました")
     """日報を即時生成"""
     if not is_allowed(update.effective_user.id):
         return
