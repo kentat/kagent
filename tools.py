@@ -255,42 +255,50 @@ def get_keihan_status() -> dict:
 # ─────────────────────────────────────────
 
 def get_fear_greed_index() -> dict:
-    """Fear & Greed Index を取得（CNNのAPIが変更された場合の代替エンドポイント付き）"""
-    endpoints = [
-        "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
-        "https://fear-and-greed-index.p.rapidapi.com/v1/fgi",
-    ]
+    """
+    Fear & Greed Index を取得。
+    CNN APIはRailwayのIPからブロックされるため、
+    VIX + S&P500モメンタムによる多因子近似値を使用。
+    """
     label_map = {
         "Extreme Fear": "極度の恐怖 😱",
-        "Fear": "恐怖 😨",
-        "Neutral": "中立 😐",
-        "Greed": "強欲 😏",
-        "Extreme Greed": "極度の強欲 🤑",
+        "Fear":         "恐怖 😨",
+        "Neutral":      "中立 😐",
+        "Greed":        "強欲 😏",
+        "Extreme Greed":"極度の強欲 🤑",
     }
     try:
-        resp = requests.get(
-            endpoints[0],
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        # レスポンス形式の違いに対応
-        if "fear_and_greed" in data:
-            fg = data["fear_and_greed"]
-            score = round(float(fg["score"]))
-            rating = fg.get("rating", "Neutral")
-        elif "fgi" in data:
-            fg = data["fgi"]
-            score = round(float(fg.get("now", {}).get("value", 50)))
-            rating = fg.get("now", {}).get("valueText", "Neutral")
-        else:
-            return {"score": 50, "rating": "Neutral", "label_jp": "データ取得不可 😐"}
+        # VIX取得
+        vix_ticker = yf.Ticker("^VIX")
+        vix_hist   = vix_ticker.history(period="5d")
+        vix_val    = float(vix_hist["Close"].iloc[-1]) if not vix_hist.empty else 20.0
+
+        # S&P500 モメンタム（現値 vs 25日移動平均）
+        sp_ticker = yf.Ticker("^GSPC")
+        sp_hist   = sp_ticker.history(period="40d")
+        sp_cur    = float(sp_hist["Close"].iloc[-1])   if not sp_hist.empty else 0
+        sp_ma25   = float(sp_hist["Close"].tail(25).mean()) if len(sp_hist) >= 25 else sp_cur
+        momentum  = (sp_cur / sp_ma25 - 1) * 100 if sp_ma25 else 0
+
+        # スコア計算（VIX逆相関 + モメンタム正相関）
+        # VIX: 10→90点, 20→50点, 30→10点（逆相関）
+        vix_score  = max(0, min(100, int(90 - (vix_val - 10) * 4)))
+        # モメンタム: -5%→20点, 0%→50点, +5%→80点
+        mom_score  = max(0, min(100, int(50 + momentum * 6)))
+        score      = round(vix_score * 0.6 + mom_score * 0.4)
+
+        if score >= 75:   rating = "Extreme Greed"
+        elif score >= 55: rating = "Greed"
+        elif score >= 45: rating = "Neutral"
+        elif score >= 25: rating = "Fear"
+        else:             rating = "Extreme Fear"
 
         return {
-            "score": score,
-            "rating": rating,
-            "label_jp": label_map.get(rating, rating),
+            "score":    score,
+            "rating":   rating,
+            "label_jp": label_map[rating] + "（VIX推定）",
+            "vix":      round(vix_val, 2),
+            "momentum": round(momentum, 2),
         }
     except Exception as e:
         return {"score": None, "rating": "ERROR", "label_jp": f"[Fear&Greed取得失敗: {str(e)[:60]}]"}
