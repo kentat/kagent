@@ -783,13 +783,14 @@ def get_youtube_summary_videos(hours: int = 24) -> list:
         if not new_videos:
             return [{"message": f"過去{hours}時間の新着動画はありませんでした"}]
 
-        # 字幕取得して要約（全件）
-        for video in new_videos:  # 全件要約
+        # 字幕取得して要約（最大10件）
+        for video in new_videos[:10]:
             video["summary"] = _get_video_summary(video["video_id"])
 
         # STEVEが出力しやすいようにテキスト形式を先頭に追加
-        lines = [f"=== YouTube新着動画 {len(new_videos)}件 ==="]
-        for v in new_videos:
+        display_videos = new_videos[:10]
+        lines = [f"=== YouTube新着動画 {len(new_videos)}件中{len(display_videos)}件表示 ==="]
+        for v in display_videos:
             lines.append(f"【{v['channel']}】{v['title']}")
             lines.append(f"URL: {v['url']}")
             lines.append(f"公開: {v['published']}")
