@@ -22,18 +22,39 @@ DB_PATH   = os.getenv("DB_PATH", "./agent_memory.db")
 _redis_client = None
 
 def _get_redis():
+    """
+    Redisクライアントを返す。
+    Upstash Redis（rediss://）と通常Redis（redis://）の両方に対応。
+    Upstash は SSL必須・コネクションプール不要のサーバーレス設計。
+    """
     global _redis_client
     if _redis_client is None and REDIS_URL:
         import redis
         import logging
+        logger = logging.getLogger(__name__)
         try:
-            _redis_client = redis.from_url(
-                REDIS_URL,
-                decode_responses=True,
-                socket_connect_timeout=5,
-                socket_timeout=5,
-            )
-            logging.getLogger(__name__).info(f"Redis接続成功: {REDIS_URL[:20]}...")
+            is_upstash = "upstash.io" in REDIS_URL or REDIS_URL.startswith("rediss://")
+
+            if is_upstash:
+                # Upstash: SSL必須・single_connection_client推奨
+                _redis_client = redis.from_url(
+                    REDIS_URL,
+                    decode_responses=True,
+                    socket_connect_timeout=10,
+                    socket_timeout=10,
+                    ssl_cert_reqs=None,        # Upstash自己署名証明書を許可
+                    single_connection_client=True,  # サーバーレス向け
+                )
+                logger.info(f"Upstash Redis接続成功: {REDIS_URL[:30]}...")
+            else:
+                # 通常Redis（Railway等）
+                _redis_client = redis.from_url(
+                    REDIS_URL,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5,
+                )
+                logger.info(f"Redis接続成功: {REDIS_URL[:20]}...")
         except Exception as e:
             logging.getLogger(__name__).error(f"Redis接続エラー: {e}")
     return _redis_client
