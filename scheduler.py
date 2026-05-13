@@ -75,11 +75,16 @@ def _extract_youtube_section(raw_data: str) -> str:
             entry += f"\n🔗 {urls[idx]}"
             videos.append(entry)
 
-    return "\n\n".join(videos) if videos else "📭 過去24時間の新着動画はありませんでした"
+    return "\n\n".join(videos[:10]) if videos else "📭 過去24時間の新着動画はありませんでした"
 
 
 def _design_prompt(raw_data: str) -> str:
-    today = datetime.now().strftime("%-m/%-d")
+    from zoneinfo import ZoneInfo
+    jst = ZoneInfo("Asia/Tokyo")
+    now_jst = datetime.now(jst)
+    weekdays = ["月","火","水","木","金","土","日"]
+    weekday = weekdays[now_jst.weekday()]
+    today = now_jst.strftime(f"%-m/%-d（{weekday}）")
     yt_section = _extract_youtube_section(raw_data)
     return f"""以下の生データをモーニングブリーフとして整形してください。
 
