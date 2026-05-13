@@ -230,3 +230,11 @@ python3 test_local.py
 **問題**: 朝データ収集失敗: データが空または短すぎる（14文字）
 **原因**: STEVEのmax_tokens=4096では10個のツールを呼び出した結果を全部出力するのに不足だった
 **対策**: max_tokens=8192に増加。タイムアウト文字列「タイムアウト」も失敗判定に追加
+
+### [2026-05-13] scheduler.py - str_replaceで関数が消失（繰り返し発生）
+**問題**: `_extract_youtube_section`、`_data_collection_prompt` 等の関数がstr_replace後に消える
+**原因**: str_replaceで前後の文字列が重複・誤マッチして関数定義ごと削除される
+**対策**:
+1. `test_local.py` の `check_scheduler_functions` と `check_internal_references` で全ヘルパー関数の存在確認（push前に必ず実行）
+2. f-string内の変数（`{yt_section}` 等）も未定義チェックに追加
+3. scheduler.pyを変更したら必ず `grep -n "^def \|^async def " scheduler.py` で全関数を確認

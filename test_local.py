@@ -73,9 +73,10 @@ def check_tool_integrity():
 
 
 def check_scheduler_functions():
-    """scheduler.pyの必須関数が存在するか"""
+    """scheduler.pyの必須関数・変数が存在するか"""
     required = [
         "_data_collection_prompt",
+        "_extract_youtube_section",
         "_design_prompt",
         "_RAW_DATA_KEY",
         "_RAW_DATA_TTL",
@@ -218,6 +219,41 @@ def check_storage_functions():
         log("FAIL", "storage関数チェック", str(e))
 
 
+def check_internal_references():
+    """コード内で呼び出されている関数が定義されているか確認"""
+    import re
+
+    # scheduler.py内の関数呼び出しと定義を照合
+    with open("scheduler.py") as f:
+        src = f.read()
+
+    # def で定義された関数・変数
+    defined = set(re.findall(r'^(?:def |async def |^)(\w+)\s*[=:(]', src, re.MULTILINE))
+
+    # 重要な内部参照をチェック
+    critical_refs = {
+        "_extract_youtube_section": "_design_prompt内で使用",
+        "_data_collection_prompt": "collect_morning_data内で使用",
+        "_design_prompt": "send_morning_report内で使用",
+        "_RAW_DATA_KEY": "Redis保存で使用",
+        "_RAW_DATA_TTL": "Redis保存で使用",
+    }
+
+    for func, usage in critical_refs.items():
+        if func not in src:
+            log("FAIL", f"内部参照:{func}", f"定義が見つかりません（{usage}）")
+        else:
+            log("OK", f"内部参照:{func}")
+
+    # f-string内の未定義変数チェック（yt_sectionなど）
+    fstring_vars = re.findall(r'return f""".*?"""', src, re.DOTALL)
+    for fs in fstring_vars:
+        vars_in_fstring = re.findall(r'\{(\w+)\}', fs)
+        for var in vars_in_fstring:
+            if var not in src.replace(f"{{{var}}}", "") and var not in ("today", "raw_data"):
+                log("FAIL", f"f-string未定義変数:{var}", "f-string内で使用されているが定義なし")
+
+
 def check_requirements():
     """requirements.txtに必要なパッケージがあるか"""
     required = [
@@ -282,6 +318,7 @@ def main():
     check_cmd_handlers()
 
     print("\n--- 整合性チェック ---")
+    check_internal_references()
     check_tool_integrity()
     check_web_auth()
     check_agents_md()
