@@ -47,9 +47,9 @@ def _extract_youtube_section(raw_data: str) -> str:
             while j < len(lines) and not (lines[j].strip().startswith("【") and "】" in lines[j]):
                 ln = lines[j].strip()
                 if ln.startswith("URL: "):
-                    url = l[5:]
+                    url = ln[5:]
                 elif ln.startswith("公開: "):
-                    published = l[4:]
+                    published = ln[4:]
                 j += 1
             if url:
                 entry = f"📺 {channel_title}"
