@@ -776,6 +776,7 @@ def get_youtube_summary_videos(hours: int = 24) -> list:
                         "url": f"https://youtu.be/{video_id}",
                         "video_id": video_id,
                         "published": pub_dt.strftime("%m/%d %H:%M"),
+                        "view_count": _get_video_view_count(video_id),
                     })
             except Exception:
                 continue
@@ -804,6 +805,30 @@ def get_youtube_summary_videos(hours: int = 24) -> list:
 
     except Exception as e:
         return [{"error": f"YouTube新着取得エラー: {str(e)}"}]
+
+
+def _get_video_view_count(video_id: str) -> str:
+    """YouTube Data API v3で視聴数を取得する"""
+    try:
+        api_key = os.getenv("YOUTUBE_API_KEY", "")
+        if not api_key:
+            return ""
+        resp = requests.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={"part": "statistics", "id": video_id, "key": api_key},
+            timeout=5,
+        )
+        items = resp.json().get("items", [])
+        if items:
+            count = int(items[0]["statistics"].get("viewCount", 0))
+            if count >= 10000:
+                return f"{count // 10000}万回"
+            elif count >= 1000:
+                return f"{count // 1000}千回"
+            return f"{count}回"
+    except Exception:
+        pass
+    return ""
 
 
 def _get_video_summary(video_id: str) -> str:
