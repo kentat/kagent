@@ -227,8 +227,6 @@ def check_internal_references():
     with open("scheduler.py") as f:
         src = f.read()
 
-    # def で定義された関数・変数
-    defined = set(re.findall(r'^(?:def |async def |^)(\w+)\s*[=:(]', src, re.MULTILINE))
 
     # 重要な内部参照をチェック
     critical_refs = {
