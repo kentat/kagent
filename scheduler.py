@@ -31,8 +31,56 @@ scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
 
 
 
+def _extract_youtube_section(raw_data: str) -> str:
+    """生データからYouTubeセクションをコードで直接フォーマット"""
+    import re
+    lines = raw_data.split("\n")
+    videos = []
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if line.startswith("【") and "】" in line:
+            channel_title = line
+            url = ""
+            published = ""
+            j = i + 1
+            while j < len(lines) and not (lines[j].strip().startswith("【") and "】" in lines[j]):
+                l = lines[j].strip()
+                if l.startswith("URL: "):
+                    url = l[5:]
+                elif l.startswith("公開: "):
+                    published = l[4:]
+                j += 1
+            if url:
+                entry = f"📺 {channel_title}"
+                if published:
+                    entry += f"\n🕐 {published}"
+                entry += f"\n🔗 {url}"
+                videos.append(entry)
+            i = j
+        else:
+            i += 1
+
+    if not videos:
+        # フォールバック: URLを直接検索
+        urls = re.findall(r"https://youtu\.be/[A-Za-z0-9_-]+", raw_data)
+        titles = re.findall(r"タイトル: (.+)", raw_data)
+        channels = re.findall(r"チャンネル: (.+)", raw_data)
+        for idx in range(len(urls)):
+            entry = "📺 "
+            if idx < len(channels):
+                entry += f"【{channels[idx]}】"
+            if idx < len(titles):
+                entry += titles[idx]
+            entry += f"\n🔗 {urls[idx]}"
+            videos.append(entry)
+
+    return "\n\n".join(videos) if videos else "📭 過去24時間の新着動画はありませんでした"
+
+
 def _design_prompt(raw_data: str) -> str:
     today = datetime.now().strftime("%-m/%-d")
+    yt_section = _extract_youtube_section(raw_data)
     return f"""以下の生データをモーニングブリーフとして整形してください。
 
 【生データ】
