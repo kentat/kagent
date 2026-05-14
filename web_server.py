@@ -267,7 +267,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     if not yt_html:
         yt_html = '<div style="color:#475569;font-size:13px;padding:16px">📭 過去24時間の新着動画はありませんでした</div>'
 
-    transit_color = "#10b981" if d["transit_ok"] else "#ef4444"
+    # transit_color: used inline
     transit_dot = "#10b981" if d["transit_ok"] else "#ef4444"
 
     pnl_jpy = d.get("pnl_jpy") or "—"
@@ -482,8 +482,6 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
     if report_type == "morning":
         return _build_morning_dashboard(content, updated_at)
 
-    titles = {"evening": "イブニングニュース", "daily": "日報"}
-    icons  = {"evening": "🌆", "daily": "📋"}
 
     try:
         if not updated_at:
@@ -954,6 +952,65 @@ def _get_page(report_type: str) -> HTMLResponse:
     content    = cache.get("content", "")
     updated_at = cache.get("updated_at", "")  # 空なら「未取得」として表示
     return HTMLResponse(_build_page(report_type, content, updated_at))
+
+
+@app.get("/api/portfolio")
+def api_portfolio_get(username: str = Depends(verify_credentials)):
+    """ポートフォリオ取得（Redisの user_portfolio キー）"""
+    if _use_redis():
+        data = _get_redis().get("user_portfolio")
+        if data:
+            return json.loads(data)
+    return []
+
+
+@app.post("/api/portfolio")
+async def api_portfolio_post(request, username: str = Depends(verify_credentials)):
+    """ポートフォリオ保存（Redisの user_portfolio キーに保存）"""
+    from fastapi import Request
+    body = await request.json()
+    portfolio = body.get("portfolio", [])
+    # tickerを大文字に統一
+    for item in portfolio:
+        if "ticker" in item:
+            item["ticker"] = item["ticker"].upper()
+    if _use_redis():
+        _get_redis().set("user_portfolio", json.dumps(portfolio))
+    return {"ok": True, "count": len(portfolio)}
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(username: str = Depends(verify_credentials)):
+    from web_settings import settings_html
+    return HTMLResponse(settings_html())
+
+
+@app.get("/api/rate")
+def api_rate(username: str = Depends(verify_credentials)):
+    try:
+        import yfinance as yf
+        t = yf.Ticker("USDJPY=X")
+        h = t.history(period="1d")
+        rate = float(h["Close"].iloc[-1]) if not h.empty else 155.0
+    except Exception:
+        rate = 155.0
+    return {"rate": rate}
+
+
+@app.get("/api/prices")
+def api_prices(tickers: str, username: str = Depends(verify_credentials)):
+    try:
+        import yfinance as yf
+        prices = {}
+        for ticker in [t.strip() for t in tickers.split(",") if t.strip()]:
+            try:
+                info = yf.Ticker(ticker).info
+                prices[ticker] = info.get("currentPrice") or info.get("regularMarketPrice", 0)
+            except Exception:
+                prices[ticker] = 0
+        return prices
+    except Exception:
+        return {}
 
 
 @app.get("/debug")
