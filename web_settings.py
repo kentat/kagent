@@ -82,7 +82,6 @@ def save_portfolio(positions: List[dict]) -> None:
 # ─── ヘルパー関数（web_server.pyから呼び出す）───
 
 def export_csv_response():
-    from fastapi.responses import StreamingResponse
     positions = load_portfolio()
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=["ticker", "name", "shares", "cost_jpy"])
