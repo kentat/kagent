@@ -8,7 +8,7 @@ import re
 import secrets
 import sys
 from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
@@ -966,9 +966,8 @@ def api_portfolio_get(username: str = Depends(verify_credentials)):
 
 
 @app.post("/api/portfolio")
-async def api_portfolio_post(request, username: str = Depends(verify_credentials)):
+async def api_portfolio_post(request: Request, username: str = Depends(verify_credentials)):
     """ポートフォリオ保存（Redisの user_portfolio キーに保存）"""
-    from fastapi import Request
     body = await request.json()
     portfolio = body.get("portfolio", [])
     # tickerを大文字に統一
