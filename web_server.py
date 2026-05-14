@@ -4,6 +4,7 @@ JOHNNY（Jony Ive哲学）によるデザイン
 """
 
 import os
+import re
 import secrets
 import sys
 from datetime import datetime
