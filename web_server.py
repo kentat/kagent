@@ -403,6 +403,176 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
 </html>"""
 
 
+def _get_morning_dashboard() -> HTMLResponse:
+    """モーニングブリーフをダッシュボードUIで返す"""
+    import re as _re
+    from zoneinfo import ZoneInfo
+    from datetime import datetime as _dt
+
+    cache = get_report_cache("morning")
+    raw   = cache.get("content", "")
+    updated_at = cache.get("updated_at", "")
+
+    # 更新日時
+    try:
+        dt = datetime.fromisoformat(updated_at)
+        if dt.tzinfo is None:
+            from zoneinfo import ZoneInfo as _ZI
+            dt = dt.replace(tzinfo=_ZI("UTC"))
+        dt_jst = dt.astimezone(ZoneInfo("Asia/Tokyo"))
+        updated_jp = dt_jst.strftime("%-m/%-d %H:%M 更新")
+    except Exception:
+        updated_jp = "未取得"
+
+    # キャッシュなし
+    if not raw:
+        return HTMLResponse(_dashboard_empty(updated_jp))
+
+    # テキストから各セクションをパース
+    def extract(label):
+        pat = rf"{re.escape(label)}.*?\n(.*?)(?=\n---|\Z)"
+        m = _re.search(pat, raw, _re.DOTALL)
+        return m.group(1).strip() if m else ""
+
+    market_raw   = extract("📈")
+    psycho_raw   = extract("😱") or extract("😐")
+    portfolio_raw= extract("💰")
+    weather_raw  = extract("🌤")
+    todo_raw     = extract("✅")
+    cal_raw      = extract("📅")
+    yt_raw       = extract("📺")
+
+    def to_items(text):
+        items = []
+        for line in text.split("\n"):
+            line = line.strip().lstrip("•·-").strip()
+            if line:
+                items.append(line)
+        return items
+
+    market_items   = to_items(market_raw)
+    psycho_items   = to_items(psycho_raw)
+    portfolio_items= to_items(portfolio_raw)
+    weather_items  = to_items(weather_raw)
+    todo_items     = to_items(todo_raw)
+    cal_items      = to_items(cal_raw)
+    yt_items       = to_items(yt_raw)
+
+    def items_html(items, urgent_kw=None):
+        rows = ""
+        for item in items:
+            is_urgent = urgent_kw and any(k in item for k in urgent_kw)
+            color = "#fca5a5" if is_urgent else "#cbd5e1"
+            bg    = "rgba(239,68,68,0.08)" if is_urgent else "rgba(255,255,255,0.02)"
+            bdr   = "rgba(239,68,68,0.25)" if is_urgent else "rgba(255,255,255,0.05)"
+            rows += f'<div style="padding:8px 10px;border-radius:8px;background:{bg};border:1px solid {bdr};margin-bottom:6px;font-size:13px;color:{color};line-height:1.5">{item}</div>'
+        return rows or '<div style="color:#475569;font-size:13px">なし</div>'
+
+    # YouTube行をリンク付きカードに
+    yt_cards = ""
+    for item in yt_items[:8]:
+        url_m = _re.search(r"(https://youtu\.be/\S+)", item)
+        url   = url_m.group(1) if url_m else "#"
+        title = _re.sub(r"https://\S+", "", item).strip().lstrip("🔗📺").strip()
+        yt_cards += f'''<a href="{url}" target="_blank" style="display:block;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;text-decoration:none;transition:border-color 0.2s"
+            onmouseover="this.style.borderColor='rgba(16,185,129,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'">
+            <div style="font-size:12px;color:#94a3b8;line-height:1.5">{title[:80]}</div>
+            <div style="font-size:10px;color:#10b981;margin-top:4px">▶ 視聴する</div>
+        </a>'''
+
+    nav = '''<nav style="position:fixed;bottom:0;left:0;right:0;height:60px;background:rgba(2,8,23,0.9);backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:flex-start;padding-top:8px;z-index:100">
+        <a href="/" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:#2997ff"><span style="font-size:20px">🌅</span><span style="font-size:9px;font-weight:600">Morning</span></a>
+        <a href="/evening" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:#475569"><span style="font-size:20px">🌆</span><span style="font-size:9px">Evening</span></a>
+        <a href="/report" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:#475569"><span style="font-size:20px">📋</span><span style="font-size:9px">日報</span></a>
+        <a href="/settings" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:#475569"><span style="font-size:20px">⚙️</span><span style="font-size:9px">設定</span></a>
+    </nav>'''
+
+    html = f"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Morning Brief | Kenta Agent</title>
+  <style>
+    *{{box-sizing:border-box;margin:0;padding:0}}
+    body{{background:radial-gradient(ellipse at 20% 10%,rgba(16,185,129,.05) 0%,transparent 50%),radial-gradient(ellipse at 80% 90%,rgba(59,130,246,.05) 0%,transparent 50%),#020817;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;min-height:100vh;padding-bottom:80px}}
+    .header{{position:sticky;top:0;background:rgba(2,8,23,.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:50}}
+    .card{{background:rgba(15,23,42,.7);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px}}
+    .card-glow{{border-color:rgba(16,185,129,.25);box-shadow:0 0 20px rgba(16,185,129,.08)}}
+    .label{{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#475569;font-weight:700;margin-bottom:10px}}
+    .grid3{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}}
+    .grid2{{display:grid;grid-template-columns:1fr 1fr;gap:8px}}
+    @media(max-width:700px){{.grid3{{grid-template-columns:1fr}}.grid2{{grid-template-columns:1fr}}}}
+  </style>
+</head>
+<body>
+<div class="header">
+  <span style="font-size:15px;font-weight:700">🏯 <span style="color:#2997ff">Kenta</span> Agent</span>
+  <span style="font-size:20px;font-weight:700">🌅 モーニングブリーフ</span>
+  <span style="margin-left:auto;font-size:11px;color:#475569">{updated_jp}</span>
+</div>
+
+<div style="padding:16px;display:flex;flex-direction:column;gap:12px;max-width:900px;margin:0 auto">
+
+  <div class="grid3">
+    <!-- 市況 -->
+    <div class="card">
+      <div class="label">📈 市況</div>
+      {items_html(market_items)}
+    </div>
+    <!-- ポートフォリオ -->
+    <div class="card card-glow">
+      <div class="label">💰 ポートフォリオ</div>
+      {items_html(portfolio_items)}
+    </div>
+    <!-- 市場心理 -->
+    <div class="card">
+      <div class="label">😱 市場心理</div>
+      {items_html(psycho_items)}
+    </div>
+  </div>
+
+  <div class="grid3">
+    <!-- 天気 -->
+    <div class="card">
+      <div class="label">🌤 天気・交通</div>
+      {items_html(weather_items)}
+    </div>
+    <!-- TODO -->
+    <div class="card">
+      <div class="label">✅ 今日のTODO</div>
+      {items_html(todo_items, urgent_kw=["期限", "遅れ", "⚠"])}
+    </div>
+    <!-- 予定 -->
+    <div class="card">
+      <div class="label">📅 予定</div>
+      {items_html(cal_items)}
+    </div>
+  </div>
+
+  <!-- YouTube -->
+  <div class="card">
+    <div class="label">📺 YouTube 新着</div>
+    <div class="grid2" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">
+      {yt_cards if yt_cards else '<div style="color:#475569;font-size:13px">新着なし</div>'}
+    </div>
+  </div>
+
+</div>
+{nav}
+</body>
+</html>"""
+    return HTMLResponse(html)
+
+
+def _dashboard_empty(updated_jp: str) -> str:
+    return f"""<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Morning Brief</title><style>body{{background:#020817;color:#e2e8f0;font-family:-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:16px}}</style></head>
+    <body><div style="font-size:48px">🌅</div><div style="font-size:18px;font-weight:700">まだレポートがありません</div>
+    <div style="color:#475569;font-size:14px">Telegramで /collect → /morning を実行してください</div>
+    <div style="color:#334155;font-size:12px">{updated_jp}</div></body></html>"""
+
+
 def _get_page(report_type: str) -> HTMLResponse:
     cache = get_report_cache(report_type)
     content    = cache.get("content", "")
@@ -427,7 +597,7 @@ def debug(username: str = Depends(verify_credentials)):
 
 @app.get("/", response_class=HTMLResponse)
 def morning(username: str = Depends(verify_credentials)):
-    return _get_page("morning")
+    return _get_morning_dashboard()
 
 @app.get("/evening", response_class=HTMLResponse)
 def evening(username: str = Depends(verify_credentials)):
