@@ -11,7 +11,8 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-from storage import get_report_cache
+from storage import get_report_cache, _use_redis, _get_redis
+import json
 
 app = FastAPI(title="Kenta Agent", docs_url=None, redoc_url=None)
 security = HTTPBasic()
