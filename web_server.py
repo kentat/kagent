@@ -985,6 +985,27 @@ def settings_page(username: str = Depends(verify_credentials)):
     return HTMLResponse(settings_html())
 
 
+@app.get("/api/portfolio/csv")
+def api_portfolio_csv_export(username: str = Depends(verify_credentials)):
+    """ポートフォリオCSVエクスポート"""
+    from web_settings import export_csv_response
+    return export_csv_response()
+
+
+@app.post("/api/portfolio/csv")
+async def api_portfolio_csv_import(request: Request, username: str = Depends(verify_credentials)):
+    """ポートフォリオCSVインポート"""
+    from fastapi import UploadFile
+    from web_settings import import_csv_data
+    form = await request.form()
+    file = form.get("file")
+    if not file:
+        return {"ok": False, "error": "ファイルがありません"}
+    content = await file.read()
+    count = import_csv_data(content)
+    return {"ok": True, "count": count}
+
+
 @app.get("/api/rate")
 def api_rate(username: str = Depends(verify_credentials)):
     try:
