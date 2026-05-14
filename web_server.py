@@ -413,7 +413,6 @@ def _get_page(report_type: str) -> HTMLResponse:
 @app.get("/debug")
 def debug(username: str = Depends(verify_credentials)):
     """デバッグ用：Redis接続とキャッシュの状態確認"""
-    from storage import _use_redis, _get_redis, get_report_cache
     redis_ok = _use_redis()
     result = {"redis_connected": redis_ok}
     if redis_ok:
