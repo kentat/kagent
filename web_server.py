@@ -305,10 +305,24 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {{
-      --bg: #020817; --surface: rgba(15,23,42,0.7); --surface2: rgba(30,41,59,0.5);
-      --border: rgba(255,255,255,0.06); --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
-      --green: #10b981; --red: #ef4444; --blue: #3b82f6;
-      --nav-h: 64px; --radius: 14px;
+      --bg: #0a0a0a;
+      --bg2: #111114;
+      --surface: rgba(26,26,30,0.92);
+      --surface2: rgba(35,35,39,0.7);
+      --surface3: rgba(28,28,32,0.95);
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.04);
+      --text: #f3f1ec;
+      --text2: #8a8a8e;
+      --text3: #5e5e62;
+      --green: #10b981;
+      --green2: #059669;
+      --red: #ef4444;
+      --cyan: #06b6d4;
+      --blue: #3b82f6;
+      --nav-h: 64px;
+      --radius: 20px;
+      --radius-lg: 28px;
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
     body {{
@@ -410,13 +424,16 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
 
     .badge-row {{ display:flex; gap:10px; flex-wrap:wrap; }}
     .mover-badge {{
-      flex:1; min-width:80px; padding:12px;
-      border:1px solid; border-radius:12px;
+      flex:1; min-width:90px; padding:14px 12px;
+      border:1px solid; border-radius:16px;
       text-align:center;
+      backdrop-filter: blur(12px);
+      transition: transform 0.15s;
     }}
-    .mover-ticker {{ font-size:16px; font-weight:700; margin-bottom:2px; }}
-    .mover-name {{ font-size:10px; color:var(--text2); margin-bottom:4px; }}
-    .mover-pct {{ font-size:15px; font-weight:700; }}
+    .mover-badge:hover {{ transform: translateY(-2px); }}
+    .mover-ticker {{ font-size:18px; font-weight:700; margin-bottom:3px; letter-spacing:0.02em; }}
+    .mover-name {{ font-size:10px; color:var(--text2); margin-bottom:5px; }}
+    .mover-pct {{ font-size:16px; font-weight:700; }}
     @keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:0.4 }} }}
     @keyframes urgentPulse {{ 0%,100% {{ box-shadow: 0 0 0 0 rgba(239,68,68,0) }} 50% {{ box-shadow: 0 0 0 4px rgba(239,68,68,0.15) }} }}
   </style>
