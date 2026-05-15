@@ -22,7 +22,7 @@ from storage import _use_redis, _get_redis, save_report_cache, get_report_cache
 
 router = APIRouter()
 
-PORTFOLIO_KEY = "settings:portfolio"
+PORTFOLIO_KEY = "user_portfolio"
 
 
 # ─── データモデル ───
