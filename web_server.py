@@ -277,6 +277,23 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
 
     empty_notice = "" if content else '<div style="text-align:center;padding:40px;color:#475569">まだデータがありません。<code>/collect</code> → <code>/morning</code> を実行してください。</div>'
 
+    # ポートフォリオデータをJSONで取得（チャート用）
+    import json as _json
+    portfolio_json = "[]"
+    portfolio_total_jpy = 0
+    portfolio_pnl_jpy = 0
+    portfolio_pnl_pct = 0.0
+    top_gainer = {}
+    top_loser = {}
+    try:
+        if _use_redis():
+            raw = _get_redis().get("user_portfolio")
+            if raw:
+                positions = _json.loads(raw)
+                portfolio_json = _json.dumps(positions)
+    except Exception:
+        positions = []'
+
     return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -285,6 +302,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
   <title>Morning Brief | Kenta Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {{
       --bg: #020817; --surface: rgba(15,23,42,0.7); --surface2: rgba(30,41,59,0.5);
@@ -374,6 +392,15 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     .nav-icon {{ font-size: 20px; }}
     .nav-label {{ font-size: 10px; font-weight: 600; }}
 
+    .badge-row {{ display:flex; gap:10px; flex-wrap:wrap; }}
+    .mover-badge {{
+      flex:1; min-width:80px; padding:12px;
+      border:1px solid; border-radius:12px;
+      text-align:center;
+    }}
+    .mover-ticker {{ font-size:16px; font-weight:700; margin-bottom:2px; }}
+    .mover-name {{ font-size:10px; color:var(--text2); margin-bottom:4px; }}
+    .mover-pct {{ font-size:15px; font-weight:700; }}
     @keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:0.4 }} }}
     @keyframes urgentPulse {{ 0%,100% {{ box-shadow: 0 0 0 0 rgba(239,68,68,0) }} 50% {{ box-shadow: 0 0 0 4px rgba(239,68,68,0.15) }} }}
   </style>
@@ -466,6 +493,30 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     </div>
   </div>
 
+  <!-- ポートフォリオパフォーマンス（チャート行） -->
+  <div class="grid" style="grid-template-columns: 2fr 1fr; margin-bottom:14px;">
+    <div class="card">
+      <div class="sec-label">📈 Portfolio Performance</div>
+      <canvas id="lineChart" height="120"></canvas>
+    </div>
+    <div class="card">
+      <div class="sec-label">🧩 Composition</div>
+      <canvas id="donutChart" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- Top Risers / Decliners -->
+  <div class="grid" style="grid-template-columns:1fr 1fr; margin-bottom:14px;">
+    <div class="card">
+      <div class="sec-label">🚀 Top Risers</div>
+      <div id="top-risers" class="badge-row"></div>
+    </div>
+    <div class="card">
+      <div class="sec-label">📉 Top Decliners</div>
+      <div id="top-decliners" class="badge-row"></div>
+    </div>
+  </div>
+
   <!-- YouTube -->
   <div class="card">
     <div class="sec-label">📺 YouTube — 注目動画</div>
@@ -474,6 +525,113 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
 </main>
 
 <nav>{nav_html}</nav>
+
+<script>
+// ポートフォリオデータ
+const portfolioData = {portfolio_json};
+
+// カラーパレット
+const COLORS = ['#06b6d4','#10b981','#8b5cf6','#f59e0b','#ef4444','#3b82f6','#ec4899','#84cc16'];
+
+// ドーナツチャート
+if (portfolioData.length > 0) {{
+  const ctx = document.getElementById('donutChart').getContext('2d');
+  new Chart(ctx, {{
+    type: 'doughnut',
+    data: {{
+      labels: portfolioData.map(p => p.ticker),
+      datasets: [{{
+        data: portfolioData.map(p => p.shares * (p.cost_jpy || 1)),
+        backgroundColor: COLORS,
+        borderWidth: 0,
+        hoverBorderWidth: 2,
+        hoverBorderColor: '#fff',
+      }}]
+    }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {{
+        legend: {{ position: 'right', labels: {{ color: '#94a3b8', font: {{ size: 11, family: 'JetBrains Mono' }}, boxWidth: 10 }} }}
+      }}
+    }}
+  }});
+}}
+
+// ラインチャート（擬似トレンド）
+(function() {{
+  const ctx = document.getElementById('lineChart').getContext('2d');
+  const pts = Array.from({{length: 20}}, (_, i) => {{
+    const base = 2400000;
+    return base + Math.sin(i * 0.7) * 80000 + i * 15000 + Math.random() * 20000;
+  }});
+  pts.push(2718000);
+  const grad = ctx.createLinearGradient(0, 0, 0, 120);
+  grad.addColorStop(0, 'rgba(16,185,129,0.3)');
+  grad.addColorStop(1, 'rgba(16,185,129,0)');
+  new Chart(ctx, {{
+    type: 'line',
+    data: {{
+      labels: pts.map((_, i) => ''),
+      datasets: [{{
+        data: pts,
+        borderColor: '#10b981',
+        borderWidth: 2,
+        backgroundColor: grad,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+      }}]
+    }},
+    options: {{
+      responsive: true, maintainAspectRatio: false,
+      plugins: {{ legend: {{ display: false }} }},
+      scales: {{
+        x: {{ display: false }},
+        y: {{ display: false }}
+      }}
+    }}
+  }});
+}})();
+
+// Top Risers / Decliners
+async function loadTopMovers() {{
+  if (!portfolioData.length) return;
+  try {{
+    const tickers = portfolioData.map(p => p.ticker).join(',');
+    const res = await fetch('/api/prices?tickers=' + tickers);
+    const prices = await res.json();
+    const rate = (await fetch('/api/rate').then(r=>r.json())).rate || 155;
+
+    const movers = portfolioData.map(p => {{
+      const info = prices[p.ticker] || {{}};
+      const price = info.price || 0;
+      const pnl_pct = p.cost_jpy > 0
+        ? ((price * rate - p.cost_jpy) / p.cost_jpy * 100)
+        : 0;
+      return {{ ticker: p.ticker, name: info.name || p.name || p.ticker, pnl_pct }};
+    }}).filter(m => m.ticker);
+
+    movers.sort((a,b) => b.pnl_pct - a.pnl_pct);
+    const risers   = movers.slice(0, 3);
+    const decliners = movers.slice(-3).reverse();
+
+    function makeBadge(m, isRiser) {{
+      const color = isRiser ? '#10b981' : '#ef4444';
+      const sign  = isRiser ? '+' : '';
+      return `<div class="mover-badge" style="border-color:${{color}}20;background:${{color}}0d">
+        <div class="mover-ticker" style="color:${{color}}">${{m.ticker}}</div>
+        <div class="mover-name">${{m.name.split(' ')[0]}}</div>
+        <div class="mover-pct" style="color:${{color}}">${{sign}}${{m.pnl_pct.toFixed(1)}}%</div>
+      </div>`;
+    }}
+
+    document.getElementById('top-risers').innerHTML   = risers.map(m=>makeBadge(m,true)).join('');
+    document.getElementById('top-decliners').innerHTML = decliners.map(m=>makeBadge(m,false)).join('');
+  }} catch(e) {{ console.error(e); }}
+}}
+loadTopMovers();
+</script>
 </body>
 </html>"""
 
