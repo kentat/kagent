@@ -483,6 +483,10 @@ def _build_page(report_type: str, content: str, updated_at: str) -> str:
     if report_type == "morning":
         return _build_morning_dashboard(content, updated_at)
 
+    titles = {"evening": "イブニングニュース", "daily": "日報"}
+    icons  = {"evening": "🌆", "daily": "📋"}
+    title  = titles.get(report_type, "レポート")
+    icon   = icons.get(report_type, "📄")
 
     try:
         if not updated_at:
