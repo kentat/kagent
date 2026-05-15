@@ -301,7 +301,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Morning Brief | Kenta Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {{
@@ -312,15 +312,20 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
     body {{
-      background: radial-gradient(ellipse at 20% 10%, rgba(16,185,129,0.05) 0%, transparent 50%),
-                  radial-gradient(ellipse at 80% 90%, rgba(59,130,246,0.05) 0%, transparent 50%),
-                  var(--bg);
+      background:
+        radial-gradient(ellipse at 15% 15%, rgba(16,185,129,0.07) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 85%, rgba(59,130,246,0.06) 0%, transparent 45%),
+        radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.04) 0%, transparent 40%),
+        #0a0a0f;
       color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh;
     }}
     header {{
       position: fixed; top: 0; left: 0; right: 0; height: 52px;
-      background: rgba(2,8,23,0.85); backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      background: rgba(10,10,15,0.8);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      display: flex; align-items: center;
       padding: 0 20px; z-index: 100;
     }}
     .logo {{ font-size: 15px; font-weight: 700; letter-spacing: 0.05em; }}
@@ -330,30 +335,41 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     .updated {{ font-size: 11px; color: var(--text3); }}
 
     main {{ max-width: 1100px; margin: 0 auto; padding: 68px 16px calc(var(--nav-h) + 24px); }}
-    .date-heading {{ font-size: 20px; font-weight: 700; padding: 16px 0 20px; color: var(--text); }}
+    .date-heading {{ font-size: 24px; font-weight: 600; padding: 16px 0 20px; color: var(--text); font-family: Newsreader, serif; letter-spacing: -0.02em; }}
 
     .grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }}
     @media(max-width: 768px) {{ .grid {{ grid-template-columns: 1fr; }} }}
 
     .card {{
-      background: var(--surface); backdrop-filter: blur(20px);
-      border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 18px; box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      background: linear-gradient(135deg, rgba(26,26,30,0.9) 0%, rgba(17,17,20,0.95) 100%);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: rgba(0,0,0,0.18) 0px 40px 80px 0px, rgba(0,0,0,0.12) 0px 0px 0px 1px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }}
-    .card.glow {{ border-color: rgba(16,185,129,0.25); box-shadow: 0 0 24px rgba(16,185,129,0.08), 0 4px 24px rgba(0,0,0,0.4); }}
-    .sec-label {{ font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); font-weight: 700; margin-bottom: 14px; }}
+    .card:hover {{
+      transform: translateY(-1px);
+      box-shadow: rgba(0,0,0,0.25) 0px 48px 96px 0px, rgba(16,185,129,0.08) 0px 0px 0px 1px;
+    }}
+    .card.glow {{
+      box-shadow: rgba(0,0,0,0.18) 0px 40px 80px 0px, rgba(16,185,129,0.2) 0px 0px 0px 1px;
+      background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(26,26,30,0.95) 100%);
+    }}
+    .sec-label {{ font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(148,163,184,0.6); font-weight: 700; margin-bottom: 14px; }}
 
     .idx-row {{ display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }}
     .idx-row:last-child {{ border-bottom: none; }}
     .idx-name {{ font-size: 11px; color: var(--text2); }}
-    .idx-val {{ font-size: 16px; font-weight: 700; }}
+    .idx-val {{ font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }}
     .idx-chg {{ font-size: 13px; font-weight: 600; }}
 
-    .fx-rate {{ font-size: 28px; font-weight: 700; }}
+    .fx-rate {{ font-size: 32px; font-weight: 700; letter-spacing: -0.03em; font-family: Newsreader, serif; }}
     .gauge-wrap {{ display: flex; justify-content: center; margin-top: 4px; }}
 
     .pnl-main {{ text-align: center; padding: 8px 0 16px; }}
-    .pnl-val {{ font-size: 30px; font-weight: 700; }}
+    .pnl-val {{ font-size: 36px; font-weight: 700; letter-spacing: -0.03em; font-family: Newsreader, serif; }}
     .pnl-sub {{ font-size: 13px; color: var(--text2); margin-top: 4px; }}
 
     .task-item {{
