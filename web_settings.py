@@ -402,7 +402,14 @@ async function calcPnl() {
 
     let totalCost = 0, totalValue = 0;
     rows.forEach((row, i) => {
-      const price = prices[row.ticker];
+      const priceInfo = prices[row.ticker];
+      const price = priceInfo ? (priceInfo.price || priceInfo) : null;
+      // 企業名の自動補完
+      if (priceInfo && priceInfo.name && !row.name) {
+        rows[i].name = priceInfo.name;
+        const nameEl = document.getElementById(`name-${i}`);
+        if (nameEl && !nameEl.value) nameEl.value = priceInfo.name;
+      }
       if (!price) return;
       const cost = row.shares * row.cost_jpy;
       const value = row.shares * price * usdJpy;
@@ -432,6 +439,21 @@ async function calcPnl() {
     pctEl.className = 'summary-value ' + (totalPct >= 0 ? 'pos' : 'neg');
     showToast('✅ 損益計算完了');
   } catch(e) { showToast('❌ 株価取得失敗', true); }
+}
+
+async function autoFillName(i, ticker) {
+  ticker = ticker.trim().toUpperCase();
+  if (!ticker) return;
+  try {
+    const res = await fetch(`/api/prices?tickers=${ticker}`);
+    const data = await res.json();
+    const info = data[ticker];
+    if (info && info.name && info.name !== ticker) {
+      rows[i].name = info.name;
+      const el = document.getElementById(`name-${i}`);
+      if (el) el.value = info.name;
+    }
+  } catch(e) { /* 取得失敗は無視 */ }
 }
 
 function showToast(msg, isError=false) {

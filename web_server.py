@@ -1039,12 +1039,15 @@ def api_prices(tickers: str, username: str = Depends(verify_credentials)):
     try:
         import yfinance as yf
         prices = {}
-        for ticker in [t.strip() for t in tickers.split(",") if t.strip()]:
+        for ticker in [t.strip().upper() for t in tickers.split(",") if t.strip()]:
             try:
                 info = yf.Ticker(ticker).info
-                prices[ticker] = info.get("currentPrice") or info.get("regularMarketPrice", 0)
+                prices[ticker] = {
+                    "price": info.get("currentPrice") or info.get("regularMarketPrice", 0),
+                    "name": info.get("longName") or info.get("shortName") or ticker,
+                }
             except Exception:
-                prices[ticker] = 0
+                prices[ticker] = {"price": 0, "name": ticker}
         return prices
     except Exception:
         return {}
