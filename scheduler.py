@@ -98,7 +98,12 @@ def _design_prompt(raw_data: str) -> str:
 ---
 😱 市場心理: [スコア]/100（[状態]）
 ---
-💰 ポートフォリオ（損益・上昇トップ3・下落ワースト3）
+💰 ポートフォリオ（以下のHTML形式で出力すること）
+<b>💰 ポートフォリオ</b>
+総損益: <b>+¥XXX,XXX</b>（+X.XX%）
+
+▲ 上昇: <code>TICK +X.X%</code> | <code>TICK +X.X%</code>
+▼ 下落: <code>TICK -X.X%</code> | <code>TICK -X.X%</code>
 ---
 🌤 天気
 大阪：（天気・最高/最低気温）
@@ -263,14 +268,36 @@ async def send_daily_report(bot, chat_id: int):
 
 async def send_evening_report(bot, chat_id: int):
     """平日 夕18時 - ニュースレポート"""
+    import asyncio
     try:
         logger.info("イブニングニュース生成開始")
-        report = run_agent(_evening_report_prompt())
+        loop = asyncio.get_running_loop()
+        report = await loop.run_in_executor(
+            None, lambda: run_agent(_evening_report_prompt())
+        )
+        # フォールバック: 空またはエラー時はポートフォリオサマリーのみ
+        if not report or len(report) < 100:
+            logger.warning("イブニングニュース生成失敗 → ポートフォリオサマリーで代替")
+            from tools import get_portfolio_pnl, get_exchange_rate
+            fx = get_exchange_rate("USD", "JPY")
+            pnl = get_portfolio_pnl()
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo("Asia/Tokyo"))
+            DOW = ["月", "火", "水", "木", "金", "土", "日"]
+            date_str = f"{now.month}/{now.day}（{DOW[now.weekday()]}）"
+            report = f"""🌆 イブニングニュース {date_str}
+---
+⚠️ ニュース取得に失敗しました。ポートフォリオサマリーのみお届けします。
+---
+💱 USD/JPY: ¥{fx.get("rate", "—")}
+💰 総損益: ¥{pnl.get("total_pnl_jpy", "—"):,}（{pnl.get("total_pnl_pct", "—")}%）"""
         save_report_cache("evening", report)
         await deliver(bot, chat_id, report, OutputChannel.TELEGRAM)
         logger.info("イブニングニュース送信完了")
     except Exception as e:
-        logger.error(f"イブニングニュースエラー: {e}")
+        logger.error(f"イブニングニュースエラー: {e}", exc_info=True)
+        await bot.send_message(chat_id=chat_id, text="⚠️ イブニングニュースの生成に失敗しました")
 
 
 # ─────────────────────────────────────────
