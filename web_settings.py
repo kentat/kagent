@@ -319,8 +319,8 @@ function renderTable() {
   rows.forEach((row, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="text" value="${row.ticker||''}" onchange="rows[${i}].ticker=this.value.toUpperCase()" style="width:80px"></td>
-      <td><input type="text" value="${row.name||''}" onchange="rows[${i}].name=this.value"></td>
+      <td><input type="text" id="ticker-${i}" value="${row.ticker||''}" onchange="onTickerChange(${i}, this.value)" style="width:80px"></td>
+      <td><input type="text" id="name-${i}" value="${row.name||''}" onchange="rows[${i}].name=this.value" placeholder="自動取得..."></td>
       <td><input type="number" value="${row.shares||0}" step="0.01" onchange="rows[${i}].shares=parseFloat(this.value)||0" style="width:80px"></td>
       <td><input type="number" value="${row.cost_jpy||0}" step="1" onchange="rows[${i}].cost_jpy=parseFloat(this.value)||0" style="width:110px"></td>
       <td id="price-${i}" style="color:var(--text2)">-</td>
@@ -330,6 +330,26 @@ function renderTable() {
     `;
     tbody.appendChild(tr);
   });
+}
+
+async function onTickerChange(i, val) {
+  const ticker = val.toUpperCase();
+  rows[i].ticker = ticker;
+  if (!ticker) return;
+  // 企業名を自動取得
+  const nameInput = document.getElementById(`name-${i}`);
+  if (nameInput && !nameInput.value) {
+    nameInput.placeholder = '取得中...';
+    try {
+      const res = await fetch(`/api/ticker/${ticker}`);
+      const d = await res.json();
+      if (d.name && d.name !== ticker) {
+        rows[i].name = d.name;
+        nameInput.value = d.name;
+      }
+    } catch(e) {}
+    nameInput.placeholder = '銘柄名';
+  }
 }
 
 function addRow() {

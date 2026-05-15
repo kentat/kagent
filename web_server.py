@@ -1010,6 +1010,18 @@ async def api_portfolio_csv_import(request: Request, username: str = Depends(ver
     return {"ok": True, "count": count}
 
 
+@app.get("/api/ticker/{ticker}")
+def api_ticker_info(ticker: str, username: str = Depends(verify_credentials)):
+    """ティッカーシンボルから企業名を取得"""
+    try:
+        import yfinance as yf
+        info = yf.Ticker(ticker.upper()).info
+        name = (info.get("longName") or info.get("shortName") or ticker.upper())
+        return {"ticker": ticker.upper(), "name": name}
+    except Exception:
+        return {"ticker": ticker.upper(), "name": ticker.upper()}
+
+
 @app.get("/api/rate")
 def api_rate(username: str = Depends(verify_credentials)):
     try:
