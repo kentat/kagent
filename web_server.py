@@ -969,7 +969,8 @@ def api_portfolio_get(username: str = Depends(verify_credentials)):
 async def api_portfolio_post(request: Request, username: str = Depends(verify_credentials)):
     """ポートフォリオ保存（Redisの user_portfolio キーに保存）"""
     body = await request.json()
-    portfolio = body.get("portfolio", [])
+    # フロントは { positions: [...] } または { portfolio: [...] } で送る
+    portfolio = body.get("positions") or body.get("portfolio", [])
     # tickerを大文字に統一
     for item in portfolio:
         if "ticker" in item:
