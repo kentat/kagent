@@ -961,8 +961,11 @@ def api_portfolio_get(username: str = Depends(verify_credentials)):
     if _use_redis():
         data = _get_redis().get("user_portfolio")
         if data:
-            return json.loads(data)
-    return []
+            positions = json.loads(data)
+            return {"positions": positions}
+    # Redisにない場合はconfig.pyからデフォルト読み込み
+    from web_settings import load_portfolio
+    return {"positions": load_portfolio()}
 
 
 @app.post("/api/portfolio")

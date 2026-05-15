@@ -91,51 +91,72 @@ def get_market_indices() -> dict:
 
 
 def get_portfolio_pnl() -> dict:
-    from config import MY_PORTFOLIO
-    positions = MY_PORTFOLIO.get("positions", {})
-    if not positions:
-        return {"error": "positions が config.py に設定されていません"}
+    """ポートフォリオ損益を計算。設定画面で保存したRedisデータを優先使用。"""
     fx = get_exchange_rate("USD", "JPY")
     usdjpy = fx.get("rate", 150.0)
     results = []
-    total_cost_usd = total_value_usd = 0
-    for ticker, pos in positions.items():
-        shares = pos["shares"]
-        cost_usd = pos["cost_usd"]
+    total_cost_jpy = total_value_jpy = 0
+
+    # Redisのuser_portfolioを優先
+    positions_list = []
+    try:
+        from storage import _use_redis, _get_redis
+        import json as _json
+        if _use_redis():
+            raw = _get_redis().get("user_portfolio")
+            if raw:
+                positions_list = _json.loads(raw)
+    except Exception:
+        pass
+
+    # Redisにない場合はconfig.pyにフォールバック
+    if not positions_list:
+        from config import MY_PORTFOLIO
+        for ticker, pos in MY_PORTFOLIO.get("positions", {}).items():
+            positions_list.append({
+                "ticker": ticker,
+                "name": pos.get("name", ticker),
+                "shares": pos.get("shares", 0),
+                "cost_jpy": round(pos.get("cost_usd", 0) * usdjpy),
+            })
+
+    for pos in positions_list:
+        ticker = pos.get("ticker", "")
+        shares = float(pos.get("shares", 0))
+        cost_jpy = float(pos.get("cost_jpy", 0))
         name = pos.get("name", ticker)
+        if not ticker or shares == 0:
+            continue
         price_data = get_stock_price(ticker)
         if "error" in price_data:
             continue
-        current_price = price_data["price"]
-        cost_total = cost_usd * shares
-        value_total = current_price * shares
-        pnl_usd = value_total - cost_total
-        pnl_pct = (pnl_usd / cost_total * 100) if cost_total else 0
-        total_cost_usd += cost_total
-        total_value_usd += value_total
+        current_price_usd = price_data["price"]
+        value_jpy = current_price_usd * shares * usdjpy
+        cost_total_jpy = cost_jpy * shares
+        pnl_jpy = value_jpy - cost_total_jpy
+        pnl_pct = (pnl_jpy / cost_total_jpy * 100) if cost_total_jpy else 0
+        total_cost_jpy += cost_total_jpy
+        total_value_jpy += value_jpy
         results.append({
-            "ticker": ticker,
-            "name": name,
-            "shares": shares,
-            "cost_usd": round(cost_usd, 4),
-            "current_price": current_price,
-            "value_usd": round(value_total, 2),
-            "pnl_usd": round(pnl_usd, 2),
+            "ticker": ticker, "name": name, "shares": shares,
+            "current_price_usd": round(current_price_usd, 2),
+            "value_jpy": round(value_jpy),
+            "cost_jpy": round(cost_total_jpy),
+            "pnl_jpy": round(pnl_jpy),
             "pnl_pct": round(pnl_pct, 2),
-            "pnl_jpy": round(pnl_usd * usdjpy, 0),
-            "day_change_usd": round(price_data["change"] * shares, 2),
-            "day_change_jpy": round(price_data["change"] * shares * usdjpy, 0),
-            "day_change_pct": price_data["change_pct"],
         })
-    total_pnl_usd = total_value_usd - total_cost_usd
+
+    total_pnl_jpy = total_value_jpy - total_cost_jpy
+    total_pnl_pct = (total_pnl_jpy / total_cost_jpy * 100) if total_cost_jpy else 0
+    results.sort(key=lambda x: x["pnl_pct"], reverse=True)
+
     return {
+        "positions": results,
+        "total_cost_jpy": round(total_cost_jpy),
+        "total_value_jpy": round(total_value_jpy),
+        "total_pnl_jpy": round(total_pnl_jpy),
+        "total_pnl_pct": round(total_pnl_pct, 2),
         "usdjpy": usdjpy,
-        "total_cost_usd": round(total_cost_usd, 2),
-        "total_value_usd": round(total_value_usd, 2),
-        "total_pnl_usd": round(total_pnl_usd, 2),
-        "total_pnl_jpy": round(total_pnl_usd * usdjpy, 0),
-        "total_pnl_pct": round((total_pnl_usd / total_cost_usd * 100) if total_cost_usd else 0, 2),
-        "positions": sorted(results, key=lambda x: x["pnl_pct"], reverse=True),
     }
 
 
