@@ -292,7 +292,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
                 positions = _json.loads(raw)
                 portfolio_json = _json.dumps(positions)
     except Exception:
-        positions = []'
+        positions = []
 
     return f"""<!DOCTYPE html>
 <html lang="ja">
