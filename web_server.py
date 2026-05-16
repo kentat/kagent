@@ -268,7 +268,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
             continue
 
         img_tag = f'<img src="{thumb}" class="yt-thumb" loading="lazy" onerror="this.parentElement.querySelector(\'.yt-thumb-fallback\').style.display=\'flex\';this.style.display=\'none\'">' if has_thumb else ""
-        fallback = f'<div class="yt-thumb-placeholder yt-thumb-fallback" style="display:none">▶</div>' if has_thumb else '<div class="yt-thumb-placeholder">▶</div>'
+        fallback = '<div class="yt-thumb-placeholder yt-thumb-fallback" style="display:none">▶</div>' if has_thumb else '<div class="yt-thumb-placeholder">▶</div>'
 
         link_start = f'<a href="{v["url"]}" target="_blank" class="yt-card">' if v.get("url") else '<div class="yt-card">'
         link_end = "</a>" if v.get("url") else "</div>"
@@ -280,7 +280,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
         if title:
             title_html += f'<div class="yt-title">{title}</div>'
         elif video_id:
-            title_html += f'<div class="yt-title" style="color:var(--text3)">動画を視聴する ▶</div>'
+            title_html += '<div class="yt-title" style="color:var(--text3)">動画を視聴する ▶</div>'
 
         views_html = f"<div class='yt-views'>👁 {v['views']}</div>" if v.get("views") else ""
 
