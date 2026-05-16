@@ -319,10 +319,14 @@ def main():
             setup_scheduler(app.bot, ALLOWED_USER_ID)
             logger.info(f"✅ スケジューラー起動完了（送信先: {ALLOWED_USER_ID}）")
 
-    # ApplicationBuilderのpost_initで確実に起動
+    # ApplicationBuilderにタイムアウトを設定（PTB推奨の書き方）
     app = (
         Application.builder()
         .token(TELEGRAM_TOKEN)
+        .get_updates_connect_timeout(30)
+        .get_updates_read_timeout(30)
+        .get_updates_write_timeout(30)
+        .get_updates_pool_timeout(30)
         .post_init(post_init)
         .build()
     )
@@ -347,10 +351,6 @@ def main():
     app.run_polling(
         drop_pending_updates=True,
         allowed_updates=["message", "callback_query"],
-        connect_timeout=30,
-        read_timeout=30,
-        write_timeout=30,
-        pool_timeout=30,
     )
 
 
