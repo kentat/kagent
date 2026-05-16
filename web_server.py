@@ -278,21 +278,14 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     empty_notice = "" if content else '<div style="text-align:center;padding:40px;color:#475569">まだデータがありません。<code>/collect</code> → <code>/morning</code> を実行してください。</div>'
 
     # ポートフォリオデータをJSONで取得（チャート用）
-    import json as _json
     portfolio_json = "[]"
-    portfolio_total_jpy = 0
-    portfolio_pnl_jpy = 0
-    portfolio_pnl_pct = 0.0
-    top_gainer = {}
-    top_loser = {}
     try:
         if _use_redis():
             raw = _get_redis().get("user_portfolio")
             if raw:
-                positions = _json.loads(raw)
-                portfolio_json = _json.dumps(positions)
+                portfolio_json = raw  # すでにJSON文字列
     except Exception:
-        positions = []
+        pass
 
     return f"""<!DOCTYPE html>
 <html lang="ja">
