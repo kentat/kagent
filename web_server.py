@@ -253,16 +253,42 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     # YouTubeHTML
     yt_html = ""
     for v in (d["youtube"] or []):
-        vid_m = __import__("re").search(r"youtu\.be/([A-Za-z0-9_-]+)", v.get("url", ""))
-        thumb = f'https://img.youtube.com/vi/{vid_m.group(1)}/mqdefault.jpg' if vid_m else ""
-        img_tag = f'<img src="{thumb}" class="yt-thumb" loading="lazy">' if thumb else '<div class="yt-thumb-placeholder">▶</div>'
+        vid_m = re.search(r"youtu\.be/([A-Za-z0-9_-]+)", v.get("url", ""))
+        video_id = vid_m.group(1) if vid_m else ""
+        thumb = f'https://img.youtube.com/vi/{video_id}/mqdefault.jpg' if video_id else ""
+
+        # タイトルとサムネイルを必ず表示
+        title = v.get("title", "").strip()
+        channel = v.get("channel", "").strip()
+        has_title = bool(title)
+        has_thumb = bool(thumb)
+
+        # タイトルもサムネイルもない場合はスキップ
+        if not has_title and not has_thumb:
+            continue
+
+        img_tag = f'<img src="{thumb}" class="yt-thumb" loading="lazy" onerror="this.parentElement.querySelector(\'.yt-thumb-fallback\').style.display=\'flex\';this.style.display=\'none\'">' if has_thumb else ""
+        fallback = f'<div class="yt-thumb-placeholder yt-thumb-fallback" style="display:none">▶</div>' if has_thumb else '<div class="yt-thumb-placeholder">▶</div>'
+
         link_start = f'<a href="{v["url"]}" target="_blank" class="yt-card">' if v.get("url") else '<div class="yt-card">'
         link_end = "</a>" if v.get("url") else "</div>"
-        yt_html += f'''{link_start}{img_tag}
+
+        # チャンネル名+タイトルを確実に表示
+        title_html = ""
+        if channel:
+            title_html += f'<div class="yt-ch">【{channel}】</div>'
+        if title:
+            title_html += f'<div class="yt-title">{title}</div>'
+        elif video_id:
+            title_html += f'<div class="yt-title" style="color:var(--text3)">動画を視聴する ▶</div>'
+
+        views_html = f"<div class='yt-views'>👁 {v['views']}</div>" if v.get("views") else ""
+
+        yt_html += f'''{link_start}
+          {img_tag}{fallback}
           <div class="yt-info">
-            <div class="yt-ch">{v["channel"]}</div>
-            <div class="yt-title">{v["title"]}</div>
-            {"<div class='yt-views'>👁 " + v["views"] + "</div>" if v.get("views") else ""}
+            {title_html}
+            {views_html}
           </div>{link_end}'''
 
     if not yt_html:
