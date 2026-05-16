@@ -165,24 +165,66 @@ def get_portfolio_pnl() -> dict:
 # ─────────────────────────────────────────
 
 def web_search(query: str) -> str:
+    """ニュース検索 - Google News RSSをメイン、DuckDuckGoをフォールバック"""
+    import urllib.parse
+
+    # メイン: Google News RSS（安定・ブロックされにくい）
+    try:
+        encoded = urllib.parse.quote(query)
+        rss_url = f"https://news.google.com/rss/search?q={encoded}&hl=ja&gl=JP&ceid=JP:ja"
+        resp = requests.get(
+            rss_url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1)"},
+            timeout=10,
+        )
+        if resp.status_code == 200 and "<item>" in resp.text:
+            import re as _re
+            titles = _re.findall(r"<title><!\[CDATA\[(.+?)\]\]></title>", resp.text)
+            dates  = _re.findall(r"<pubDate>(.+?)</pubDate>", resp.text)
+            results = []
+            for i, title in enumerate(titles[1:6]):  # 先頭はフィードタイトルなので除外
+                date = dates[i].strip()[:16] if i < len(dates) else ""
+                results.append(f"• {title} ({date})")
+            if results:
+                return f"🔍 {query}\n\n" + "\n".join(results)
+    except Exception:
+        pass
+
+    # フォールバック: DuckDuckGo
     try:
         resp = requests.get(
             "https://api.duckduckgo.com/",
             params={"q": query, "format": "json", "no_redirect": 1, "no_html": 1},
-            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=8,
         )
         data = resp.json()
         results = []
         if data.get("Abstract"):
-            results.append(f"📌 {data['Abstract']}")
-        if data.get("Answer"):
-            results.append(f"✅ {data['Answer']}")
-        for topic in data.get("RelatedTopics", [])[:5]:
+            results.append(f"📌 {data['Abstract'][:300]}")
+        for topic in data.get("RelatedTopics", [])[:4]:
             if isinstance(topic, dict) and topic.get("Text"):
                 results.append(f"• {topic['Text'][:200]}")
-        return f"🔍 {query}\n\n" + "\n".join(results) if results else f"「{query}」の結果なし"
-    except Exception as e:
-        return f"検索エラー: {str(e)}"
+        if results:
+            return f"🔍 {query}\n\n" + "\n".join(results)
+    except Exception:
+        pass
+
+    # 最終フォールバック: Hacker News検索
+    try:
+        resp = requests.get(
+            "https://hn.algolia.com/api/v1/search",
+            params={"query": query, "tags": "story", "hitsPerPage": 5},
+            timeout=8,
+        )
+        hits = resp.json().get("hits", [])
+        results = [f"• {h['title']}" for h in hits if h.get("title")]
+        if results:
+            return f"🔍 {query}（Hacker News）\n\n" + "\n".join(results)
+    except Exception:
+        pass
+
+    return f"「{query}」のニュースを取得できませんでした"
 
 
 def fetch_url_content(url: str) -> str:
