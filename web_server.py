@@ -305,24 +305,22 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     :root {{
-      --bg: #0a0a0a;
-      --bg2: #111114;
-      --surface: rgba(26,26,30,0.92);
-      --surface2: rgba(35,35,39,0.7);
-      --surface3: rgba(28,28,32,0.95);
-      --border: rgba(255,255,255,0.07);
-      --border2: rgba(255,255,255,0.04);
-      --text: #f3f1ec;
-      --text2: #8a8a8e;
-      --text3: #5e5e62;
+      --bg: #020617;
+      --bg2: #0f172a;
+      --surface: rgba(15,23,42,0.4);
+      --surface2: rgba(15,23,42,0.6);
+      --border: rgba(51,65,85,0.6);
+      --border2: rgba(51,65,85,0.3);
+      --text: #f8fafc;
+      --text2: #94a3b8;
+      --text3: #475569;
       --green: #10b981;
-      --green2: #059669;
       --red: #ef4444;
-      --cyan: #06b6d4;
+      --cyan: #38bdf8;
       --blue: #3b82f6;
       --nav-h: 64px;
-      --radius: 20px;
-      --radius-lg: 28px;
+      --radius: 1.5rem;
+      --radius-lg: 2rem;
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }}
     body {{
@@ -331,7 +329,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
         radial-gradient(ellipse at 85% 85%, rgba(59,130,246,0.06) 0%, transparent 45%),
         radial-gradient(ellipse at 50% 0%, rgba(139,92,246,0.04) 0%, transparent 40%),
         #0a0a0f;
-      color: var(--text); font-family: 'JetBrains Mono', monospace; min-height: 100vh;
+      color: var(--text); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; min-height: 100vh;
     }}
     header {{
       position: fixed; top: 0; left: 0; right: 0; height: 52px;
@@ -420,7 +418,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
     .nav-item {{ flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; text-decoration: none; color: var(--text3); padding: 4px 0; }}
     .nav-item.active {{ color: var(--green); }}
     .nav-icon {{ font-size: 20px; }}
-    .nav-label {{ font-size: 10px; font-weight: 600; }}
+    .nav-label {{ font-size: 10px; font-weight: 600; font-family: 'Inter', sans-serif; }}
 
     .badge-row {{ display:flex; gap:10px; flex-wrap:wrap; }}
     .mover-badge {{
@@ -496,7 +494,7 @@ def _build_morning_dashboard(content: str, updated_at: str) -> str:
       <div class="card glow">
         <div class="sec-label">💰 Portfolio</div>
         <div class="pnl-main">
-          <div class="pnl-val" style="color:{pnl_color}">{pnl_jpy}</div>
+          <div class="pnl-val neon-value" style="color:{pnl_color}">{pnl_jpy}</div>
           <div style="font-size:18px;font-weight:700;color:{pnl_color};opacity:0.85">{pnl_pct}</div>
         </div>
       </div>
